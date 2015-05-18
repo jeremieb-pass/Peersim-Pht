@@ -235,7 +235,7 @@ public class PhtUtil {
         fw.write("Number of keys in the Pht  : " + nbKeys   + "\n");
         fw.write("Number of nodes in the Pht : " + nbNodes  + "\n");
         fw.write("Number of leaves in the Pht: " + nbLeaves + "\n");
-        fw.write("NUmber of requests         : " + PhtProtocol.getNextId() + "\n\n");
+        fw.write("Number of requests         : " + PhtProtocol.getNextId() + "\n\n");
 
         fw.write("PhtProtocol.B: " + PhtProtocol.B + "\n");
         fw.write("PhtProtocol.D: " + PhtProtocol.D + "\n\n");
