@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Peersim-Pht by nongbottom</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/normalize.css" media="screen">
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="../stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/github-light.css" media="screen">
+
+    <link href='http://fonts.googleapis.com/css?family=PT+Sans+Narrow' rel='stylesheet' type='text/css'>
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">
+          Peersim-Pht
+          <!--<h2 class="project-tagline">Prefix Hash Tree Implementation for PeerSim</h2>-->
+          <a href="https://github.com/nongbottom/Peersim-pht">
+              <!--View on GitHub-->
+              <img src="../GitHub-Logo2.png"
+                   alt="Github logo"
+                   style="height:42px;width:42px">
+          </a>
+      </h1>
+		<a href="../index.html" class="btn">Home</a>
+        <a href="rapport.html" class="btn">Rapport</a>
+		<a href="../documentation.html" class="btn">Documentation</a>
+    </section>
+
+<section class="main-content">
+
+<h3>Introduction</h3>
+
+<p>
+Un système pair-à-pair est un système distribué complètement décentralisé où les communications
+sont symétriques. Ceci signifie qu'il est possible de répartir des ressources comme les capacités
+de stockage de tous les noeuds du réseau, tout en s'adaptant à la quantité de données à gérer. 
+Ainsi, un tel système peut très facilement passer à l'échelle contrairement à un système 
+client-serveur classique, moins flexible. La fonctionnalité principale attendue dans un système 
+pair-à-pair très large échelle est sa capacité à retrouver une donnée efficacement. L'utilisation 
+d'une Dht (Distributed Hash Table - table de hachage distribuée) permet de répondre à ce besoin 
+de manière optimale.
+
+Si une Dht permet d'identifier une donnée et d'y accéder efficacement, elle 
+possède un gros inconviénient: il n'est possible que de faire des recherches 
+exactes. Impossible donc de faire une recherche sur un intervalle de clés. 
+C'est pour cela que des structures de données reposant sur Dht sont apparus . Parmi 
+celles-ci on peut citer: DST, Pht, Light. Ces structures de données sont indépendantes de la 
+solution retenue pour la Dht.
+</p>
+
+<h4>Cahier des charges</h4>
+	
+<p>L'objectif du projet est d'implémenter ce
+système d'indexation au sein d'un logiciel de simulation . Quatre opérations 
+sont demandées:
+
+insertion d'un couple (clé, valeur)
+suppression d'un couple (clé, valeur)
+recherche d'une clé
+recherche sur un intervalle de clé
+
+La solution retenue doit au minimum fournir ces fonctionnalités. 
+</p>
+
+<!--
+     ----------------------------- Contexte ----------------------------
+-->
+	
+	<h3>Contexte</h3>
+
+<p>Ce PSAR comporte deux aspects: une structure de données  qui nous permette de
+répondre au cahier des charges, et son intégration dans PeerSim. Dans le choix 
+de cette structure de données, il existe deux approches: celles qui reposent sur une 
+Dht générique, et celles qui dépendent d'une implémentation particulière. 
+Nous en avons choisi une qui correspond à la première approche: Pht. Celui-ci peut 
+être déployé avec n'importe quelle Dht. 
+Notre implémentation de Pht repose donc sur une Dht dans PeerSim (fournie 
+sous forme de paquet), et s'intègre dans l'environnement de simulation. Pour y 
+parvenir, il a fallu écrire une interface avec une Dht (le choix n'a pas 
+d'importance ici). Cette interface permet de:
+
+	maintenir l'indépendance complète de Pht vis-à-vis de telle ou telle 
+		implémentation de Dht,
+	s'adapter à une Dht en particulier pour les simulations.
+
+Le dernier point signifie que toutes les Dht proposent des opérations 
+d'insertion, de suppression et de recherche mais il peut y avoir des nuances 
+au niveau du code en Java.
+</p>
+
+<!--
+----------------------------- Dht ------------------------------
+-->
+	
+	<h3>Dht</h3>
+
+<p>Quel est le principe général d'un protocole utilisant une Dht ?
+Chaque noeud du réseau possède un identifiant sur k bits, le résultat d'une 
+fonction de hachage uniforme. Lorsqu'une donnée est insérée dans le réseau, une clé est 
+générée à partir du nom du fichier ou de son contenu (avec la même fonction de 
+hachage que celle des noeuds du réseau). Le noeud responsable de cette donnée 
+est le noeud dont l'identifiant est le plus proche de la clé. Lorsque la donnée 
+est insérée dans le réseau avec sa clé, celle-ci devra parcourir des noeuds du 
+réseau jusqu'à trouver son hôte. Les différences entre les protocoles résident 
+dans les choix sur la politique de routage, et sur les 
+informations que chaque noeud a du réseau: voisins proches 
+géographiquement/numériquement. 
+
+Le principal
+avantage d'une Dht devient dans notre cas une limitation: les recherches exactes. En 
+distribuant uniformément les clés sur l'ensemble des valeurs possibles, la 
+fonction de hachage casse la proximité entre les données: deux noms de fichiers 
+très proches vont avoir des clés éloignées, de même des valeurs proches (distance 
+parcourue lors d'un jogging par exemple) vont aussi avoir des clés éloignées. 
+Le hachage uniforme permet de répartir la charge équitablement entre les noeuds du 
+réseau. Mais en même temps il empêche de faire des recherches sur des 
+intervalles de clés. 
+
+
+Il existe de nombreuses implémentations de Dht, toutes offrent le
+même service: insérer, retrouver, chercher une clé donnée. Pour y arriver, 
+chaque protocole fait des choix sur la quantité d'informations que chaque 
+noeud du réseau maintient, et sur la complexité de l'opération de recherche. 
+Ces deux points influent sur le nombre de messages émis au sein du réseau. 
+La maintenance est beaucoup plus lourde dans un système 
+pair-à-pair que dans un système clients-serveur car le système est décentralisé 
+et le nombre de départs et d'arrivées de noeuds par unité de temps peut être 
+très élevé (et surtout très variable). A titre d'exemple, nous présentons 
+brièvement deux des premières implémentations de Dht: \emph{Chord} et \emph{Pastry}.
+</p>
+
+<!-- --------- Chord ---------- -->
+
+	<h4>Chord</h4>
+	
+Chord est un protocole dévelopé par la Defense Advanced Research Projects
+Agency (DARPA) américaine, il a été publié en 2001. Chord utilise une topologie 
+en anneau, où chacune des $2^k$ valeurs possibles représente un point de l'anneau. 
+Ceux-ci sont disposés en ordre croissant et on définit la fonction $successeur(K)$ comme 
+étant soit le noeud dont l'identifiant est égal à K, soit le noeud qui suit immédiatement 
+K sur l'anneau. Pour effectuer ses recherches, chaque noeud maintient une 
+table à k entrées, où chaque entrée i correspond au \emph{$2^{i-1}$-ème} successeur de 
+noeud avec $1 \leq i \leq k$. La complexité est celle attendue: $O(log _2 N)$. 
+Chord est ainsi relativement simple tout en étant efficace dans le cas général. 
+Toutefois, il souffre d'un défaut: il ne prend pas en compte la distance 
+géographique entre les noeuds. Dans le pire des cas, une opération de recherche 
+peut ainsi faire plusieurs fois le tour du monde, ce qui a des conséquences en 
+terme de performances.
+
+<!-- --------- Pastry ---------- -->
+
+	<h4>Pastry</h4>
+	
+Pastry est un protocole qui maintient un nombre plus important
+d'informations sur le réseau, notamment sur la distance géographique entre les 
+noeuds. Pour y parvenir, Pastry maintient trois ensembles: 
+
+	un leaftset qui comporte les L noeuds les plus proches 
+		numériquement, 
+	une table de voisinage qui contient les M noeuds les plus proches 
+		géographiquement, 
+	et enfin une table de routage. 
+
+Le leafset permet de router directement un message 
+sans passer par la table de routage, la table de voisinage permet de retenir 
+les noeuds les plus proches géographiquement dans la table de routage parmi les 
+différents candidats possibles. A chaque ligne i de la table de routage de 
+Pastry, tous les noeuds ont tous en commun les i premiers chiffres de l'identifiant 
+du noeud. Ceci permet d'acheminer un message: si les identifiants sont codés en 
+base binaire, le message se rapproche de sa destination à chaque étape.
+
+
+<!--
+---------------- Protocoles reposant sur une Dht ---------------
+-->
+	
+	<h3>Protocoles reposant sur une Dht</h3>
+
+Pour ce PSAR, nous cherchons un structure de données
+qui permette d'effectuer des recherches sur un intervalle de clés. 
+Ceci a fait 
+l'objet de recherches et il en existe plusieurs qui offrent ces 
+fonctionnalités. Nous en présenterons deux: DST et Pht.
+Ces structures de données proposent de maintenir la proximité entre les données, 
+et permettent d'effectuer des opérations plus complexes.
+
+<!-- ---------- Pht ---------- -->
+
+Prefix Hash Tree Pht partitionne l'espace des clés sur un
+arbre préfixe. Chaque noeud de l'arbre possède un identifiant binaire, chaque 
+noeud Pht est géré par le noeud Dht dont l'identifiant est le plus proche de 
+$hash(identifiant\_du\_noeud)$. L'arbre est ainsi distribué sur le réseau et 
+chaque noeud interne doit effectuer une recherche Dht pour retrouver ses 
+éventuels père et fils. 
+Pht mémorise les clés dans les feuilles de l'arbre. Chaque noeud 
+de l'arbre possède un identifiant $l$ de longueur $len(lk)$, et chaque noeud 
+interne possède deux fils dont les identifiants sont $l0$ et $l1$, de longueur 
+$len(l) + 1$ chacun. [Pht 01] définit ainsi les propriétés invariantes dans un 
+Pht:
+
+		1. Prefix universel Chaque noeud a 0 ou 2 fils.
+		2. Stockage de clés Une clé K est stockée dans une feuille dans
+			l'identifiant est un préfixe de K.
+		3. Scission Chaque feuille gère au plus $B$ clés.
+		4. Fusion Chaque noeud interne gère au minimum $B+1$ clés dans ses
+			sous-arbres.
+		5. Liens entre feuilles Chaque feuille maintient un pointeur vers
+			la feuille immédiatement à sa gauche et un autre vers la feuille 
+			immédiatement à sa droite.
+
+Pht est une structure de donnée simple et efficace qui est adopté par des 
+applications au-delà du monde de la recherche. Il s'agit de la structure de donnée que nous 
+avons choisi pour implémenter le système d'indexation voulu. Nous reviendrons 
+plus en détail sur le fonctionnement de Pht dans la partie suivante.
+
+<!-- ---------- DST ---------- -->
+
+Distributed Segment Tree DST est un arbre binaire où chaque noeud
+représente un intervalle de clés: la racine couvre l'ensemble des clés de 
+l'arbre, et chacun des sous-arbres gauche et droite en couvre la moitié. Une 
+feuille de l'arbre ne couvre qu'une seule clé. Contrairement à Pht, les clés sont 
+stockées dans les noeuds. Afin d'éviter une surcharge de certains noeuds, DST 
+propose un seuil au-delà duquel un noeud interne n'accepte plus de clés. DST 
+permet d'effectuer des recherches exactes et sur intervalle, comme Pht.
+
+
+<!--
+---------------------------- PeerSim ---------------------------
+-->
+
+PeerSim est un logiciel de simulation de système pair-à-pair écrit
+en Java. PeerSim est modulaire: tous ses composants peuvent  être modifiés et 
+il est relativement aisé d'implémenter de nouveaux protocoles. Les simulations 
+sont de deux sortes: par cycles ou par événement. Tous les choix faits pour une
+simulation se font dans un fichier de configuration dans lequel les différentes 
+couches sont décrites (Pastry, Pht, connexions entre les noeuds, départs et 
+arrivées des noeuds, comportements aléatoires). Il est également possible de transmettre 
+des paramètres aux protocoles.
+
+Il est possible de lancer deux types de simulation, par 
+événement, par cycle. Dans le premier cas, les noeuds effectuent des 
+actions de manière séquentielle, lorsqu'ils le peuvent: par exemple lors 
+d'un message. Il n'y a pas de concurrence dans ce type de simulation. Au contraire, le 
+second cas autorise le traitement de plusieurs événements à la fois. 
+Ce modèle permet d'obtenir une simulation plus proche de la 
+réalité, toutefois le premier permet de mieux appréhender le comportement 
+général d'un protocole au prix de certaines simplifications.
+
+Dans Peersim, chaque noeud du réseau de la simulation possède une
+pile de protocoles. La communication entre protocoles se fait à l'aide des 
+identifiants de chacun d'entre eux: en connaissant l'identifiant d'un protocole 
+X, un protocole Y peut utiliser les services qu'il propose.
+
+<!--
+---------------------------- API ---------------------------
+-->
+
+Les opérations associées à une Pht sont celles attendues pour ce PSAR: insertion d'un couple 
+(clé, donnée), suppression d'un couple (clé, donnée), recherche d'une clé, recherche sur un 
+intervalle de clé. L'interface Client définit ces opérations et permet au nœud sur lequel elles 
+sont déclenchées de fournir une réponse. Du point de vue utilisateur il suffit d’implémenter 
+l'interface Client pour émettre des requêtes et recevoir des réponses.
+
+Dans un premier temps nous supposons qu'une nouvelle requête du client n'arrive que lorsque la
+précédente a été entièrement traitée: la requête elle-même, plus toutes celles de maintenance de
+la Pht qui ont pu être générées par celles-ci.
+
+
+<!-- ---------- Insertion ---------- -->
+
+L'insertion d'une couple (clé, donnée) se déroule en quatre étapes:
+
+	trouver la machine qui possède la feuille Pht responsable de \emph{hash(cle)},
+	cette machine renvoie un acquittement avec son adresse, et la machine initiatrice envoie la donnée (avec la clé) à insérer,
+	la machine responsable de \emph{hash(clé)} insère le couple (clé, donnée) dans le feuille Pht et renvoie un acquittement,
+	la machine initiatrice répond au client et lui indique si tout s'est bien déroulé.
+
+
+Ce processus en quatre étapes a pour but de limiter la quantité de données en transit sur le réseau.
+Supposons que la donnée soit de grande taille et que la machine qui détient la feuille Pht soit
+très éloignée de la machine initiatrice: à chaque étape, chaque machine devrait recevoir la donnée
+et la transmettre.
+
+Avec cette solution, les données ne sont transmises que lorsque la feuille Pht a été trouvée. La
+machine qui possède cette feuille répond à la machine initiatrice et le transfert peut démarrer.
+Le surcoût n'est que de deux messages: l'envoi de la donnée et un acquittement supplémentaire.
+
+Une insertion sur une feuille Pht autre que la racine (au début la racine est le seul nœud de
+l'arbre et est donc une feuille), déclenche systématiquement l'envoi d'une message à son père pour
+lui indiquer que le nombre de clés dans son sous-arbre a augmenté de un.
+
+Une opération de \emph{split} peut être déclenchée si le nombre de clé est supérieur à la
+constante \emph{B} du protocole (\emph{N.B.: Chaque feuille gère au plus B clés}).
+
+Cette propriété a pour conséquence qu'une insertion peut générer une série de splits à la chaîne:
+tant que toutes les clés partent vers le même fils, la propriété ne sera pas respectée et un
+nouveau split sera déclenché, et ainsi de suite.
+
+Cette conséquence présente un inconvénient majeur en terme de nombre de messages émis sur le
+réseau, et sur l'état général du sous-arbre duquel est parti le premier split. Nous reviendrons
+plus en détail sur ces deux inconvénients dans la partie \emph{V. Choix d'implémentations}.
+
+Une solution proposée dans le papier présentant Pht consiste à dire qu'un seul split peut être
+déclenché à la suite d'une insertion et donc que le nombre de clés que possède une feuille peut
+être supérieur à B.
+
+
+<!-- --------- Suppression --------- -->
+
+La suppression d'une clé se fait en deux étapes:
+
+	chercher la feuille responsable de la clé et supprimer la clé si la feuille a été trouvée,
+	renvoyer un acquittement à la machine initiatrice en lui indiquant si la clé a été supprimée ou non.
+
+De la même manière qu'une insertion, une suppression d'une clé dans une feuille déclenche l'envoi
+d'un message à son père pour lui indiquer que le nombre de clés dans son sous-arbre a diminué de un.
+Si le père voit que le nombre de clé dans son sous-arbre est strictement inférieur à la constante
+''B'', une opération de \emph{merge} est déclenchée.
+
+Une suppression peut ainsi entraîner des merge en cascade, on en revient aux mêmes inconvénients
+que pour les insertions: nombre de messages émis et état d'une partie de l'arbre. Une solution
+proposée dans papier présentant Pht est de n'autoriser qu'un seul merge par suppression: un nœud
+interne peut donc se retrouver avec moins de B+1 clés dans ses sous-arbres.
+
+<!-- --------- Recherche exacte ---------- -->
+
+Il y a deux manières d’effectuer une recherche exacte dans une
+Pht: l’une linéaire, l’autre binaire. La première consiste à retrouver la
+feuille responsable d’une clé en partant de la racine. La seconde commence par
+faire une recherche Dht pour un préfixe de la clé de longueur $n/2$, n étant la longueur de la clé : 
+
+	si le nœud n'existe pas (la machine responsable de hash(identifiant) ne possède aucun nœud avec l'identifiant cherché), la méthode essaie avec un préfixe plus court,
+	si c’est un nœud interne, avec un préfixe plus long.
+
+Et ce de façon séquentielle jusqu’à trouver la feuille recherchée.
+
+La méthode linéaire possède deux inconvénients : elle créé un goulot d’étranglement à la racine et
+elle est moins efficace que la méthode binaire. Elle possède toutefois l’avantage de résister aux
+pannes: un nœud interne peut détecter la panne d'un de ses fils et déclencher une opération de
+maintenance. Par contre, une recherche binaire est incapable de savoir si l'identifiant cherché
+était trop grand (l'arbre ne descend pas aussi bas), ou si le nœud existe mais qu'il est tombé.
+
+Le type de la recherche est déterminé par un champ dans la classe PhtProtocol. Nous reviendrons
+sur ce point lors de la description de l'architecture du projet.
+
+
+<!-- ---------- Recherche sur un intervalle ---------- -->
+
+Cette opération constitue le principal apport de Pht. Pht propose deux façon de procéder : à
+l’aide d’une recherche séquentielle, ou à l’aide d’une recherche parallèle. Une recherche
+séquentielle se déroule ainsi :
+
+trouver la feuille responsable du début de l’intervalle,
+parcourir les feuilles en utilisant les pointeurs que maintiennent les feuilles de l’arbre entre elles, jusqu’à arriver à la feuille responsable de la fin de l’intervalle.
+
+La recherche parallèle procède de cette manière :
+
+commencer par chercher le plus petit préfixe commun aux deux valeurs de l’intervalle,
+des recherches en parallèle sont lancées vers les sous-arbres de ce nœud,
+chaque feuille rencontrée qui fait partie de l’intervalle recherché est récupérée.
+
+<!--
+-------------------------- Architecture ---------------------------
+-->
+
+PeerSim propose deux types de simulation: par événements et par cycle. Un Pht s'appuie sur une Dht.
+Les trois implémentations de Dht proposées sous forme de paquets sur le site de PeerSim (Chord,
+Pastry et Kademlia) n'implémentent pas la simulation par cycles.
+
+\subparagraph{}La description que nous proposons ici se fait donc pour une estimation par
+événements. Ceci n'est pas un réel problème, car une simulation par événements est plus adaptée
+pour une analyse du comportement de Pht en terme de messages émis et de répartition de la charge.
+
+Le projet est axé autour de deux classes principales PhtProtocol et PhtNode. PhtProtocol contient
+0 à n PhtNodes et est responsable de la transmission et de la réception de messages. PhtNode est
+rattaché à un PhtProtocol et contient les données avec leurs clés.
+
+Dans un premier temps, nous avons supposé qu'une seul requête est traitée à la fois sur le réseau.
+Ceci est la façon la plus simple de vérifier que le comportement observé est celui attendu. La
+deuxième étape consiste à gérer l'arrivée d'une nouvelle requête avant que la précédente ne soit
+terminée. Cette deuxième étape n'a pas été réalisée au moment où nous écrivons ce rapport, nous
+reviendrons sur l'avancement général du projet.
+
+Nous donnons ci-dessous une brève description du rôle des principaux composants du projet. Pour une
+description plus détaillée, se reporter à la documentation.
+
+<!-- ---------- PhtProtocol ---------- -->
+
+Le rôle principal de PhtProtocol est de gérer les communications entre les nœuds Pht (PhtNode).
+Cette classe permet aussi à un client d'émettre une requête pour une insertion, une suppression,
+une recherche exacte ou sur un intervalle.
+
+La majeure partie de la classe consiste en méthodes pour le
+traitement des événements (messages) qui arrivent. Une méthode processEvent
+sert de grand aiguilleur pour déléguer le traitement de messages vers la méthode
+appropriée: processLinLookup pour une recherche linéaire, processInsertion pour
+une Insertion, processMerge pour un \emph{merge} etc. Afin de limiter la taille
+de l'aiguillage (un switch), une méthode supplémentaire peut être appelée pour
+les messages d'acquittement. Cette méthode procède de la même manière: diriger
+un acquittement de recherche linéaire vers processAck\_LinLookup, d'une
+insertion vers processAck\_Split, etc.
+
+La classe PhtProtocol sert d'interface entre les clients et les nœuds Pht et entre les nœuds Pht
+eux-mêmes lors des opérations de maintenance de l'arbre.
+
+Pour stocker les PhtNodes la structure de donnée retenue doit être capable de:
+
+		retrouver de manière efficace un nœud avec un identifiant exact
+		trouver une feuille qui est un préfixe d'une clé
+
+Nous avons choisi de stocker les PhtNodes dans un arbre binaire de recherche. Nous discuterons des
+différentes manières d'adapter un arbre binaire de recherche classique à nos besoins à la fin de
+ce rapport.
+
+<!-- Compteur -->
+Chaque requête est identifiée de manière unique par un compteur commun à toutes les instances
+PhtProtocol. Ceci n'est pas réalisable dans un réseau pair-à-pair totalement décentralisé.
+Cependant, dans le cadre d'une simulation, celui-ci nous permet de suivre une requête tout au long
+de ses étapes. Le débogage devient plus simple.
+
+
+<!-- --------- PhtNode ---------- -->
+
+Le rôle principal de la classe PhtNode est de stocker des couples (clé, donnée) et de pouvoir y
+accéder.
+
+Les clés et les données associées sont indexés dans une table de
+hachage: pour une insertion, une suppression ou une recherche exacte le temps
+pris par chacune de ces opérations est en $O(1)$. Un nœud peut avoir beaucoup de clés, et une
+telle structure de données permet de répondre de manière efficace: elle connaît l'identifiant de
+la feuille suivante et peut donc savoir si il faut lui transmettre la requête ou non. Toutes les
+feuilles qui transmettent la requête vers la prochaine feuille savent que l'ensemble de leurs clés
+est inclus dans l'intervalle recherché.
+
+Un PhtNode maintient également des informations sur ses éventuels fils et son père
+(sauf la racine qui n'a pas de père): leurs identifiants et une référence vers le nœud PeerSim sur
+lequel ils se trouvent. Cette dernière information permet de communiquer directement et ainsi
+éviter des routages au niveau de la Dht.
+
+Etats d'un noeud. Un noeud Pht possède un champ \emph{state} qui
+représente son état et celui de chacun de ses fils le long d'un split ou d'un 
+merge. La figure 1 illustre les différents états que peut traverser un noeud 
+Pht, son fils gauche et son fils droit.
+
+Initialament, un noeud est dans un état stable, lors d'un split il passe à l'état
+\emph{WAITING\_SPLIT}. Il ne passe à l'état suivant que
+lorsque ses deux fils lui ont envoyé un acquittement. Il passe alors à l'état 
+ACK\_SPLIT. Le processus est similaire pour le passage de \emph{ACK\_SPLIT} à 
+\emph{ACK\_SPLIT\_LEAVES}, de \emph{ACK\_SPLIT\_LEAVES} à 
+\emph{ACK\_SPLT\_DATA} et enfin de \emph{ACK\_SPLIT\_DATA} à \emph{STABLE}.
+
+Avoir des champs lson et rson pour les fils gauche et droit
+permet de limiter le nombre d'états: chaque champs évolue au rhytme des 
+acquittements et l'état du noeud n'évolue que lorsque les deux ont passés 
+le même niveau.
+
+Le processus pour les merge est similaire à celui pour
+les splits.
+
+
+<!-- --------- PhtMessages ---------- -->
+
+Il existe trois classes de messages: \emph{PhtMessage},
+\emph{PMLookup}, \emph{PMRangeQuery}. Les messages sont construits à la manière de poupées russes:
+un PMRangeQuery est dans un PMLookup qui est lui-même dans un Phtmessage.
+
+Selon la requête, un message peut consister en un simple PhtMessage, un PhtMessage avec un
+PMLookup, ou encore un PhtMessage avec un PMLookup contenant un PMRangeQuery. Le rôle de PhtMessage
+est de fournir l'information minimum dont toutes les requêtes ont besoin.
+
+Lors d'une requête, le même PhtMessage est en circulation: seules les informations supplémentaires
+que contient un message peuvent changer durant le parcours du message.
+
+<!-- ---------- Interface avec la Dht ---------- -->
+
+La structure de données utilisée dans ce projet, doit être indépendante de la Dht sur laquelle
+elle repose. Pour maintenir cette indépendance, nous avons décrit une interface DhtInterface qui
+définit les méthodes pour communiquer avec la Dht. Ainsi, il est possible au niveau de la classe
+PhtProtocol d'envoyer un message via la Dht sans se préoccuper dans la manière dont telle ou telle
+implémentation de Dht fonctionne.
+
+Pour l'intégration dans PeerSim nous avons choisi d'utiliser Pastry comme Dht. Nous avons ajouté
+un paquet peersim.pht.pastry qui fournit une classe implémentant DhtInterface, ainsi que quelques
+autres classes propres à l'intégration avec Pastry.
+
+
+<!--
+----------------------- Implémentation de Pht ---------------------
+-->
+
+Dans cette partie, seule l'intégration de Pht tel que décrit
+dans [Pht 01] sera présentée. Tous les choix, toutes les contraintes propres à 
+l'intégration dans PeerSim seront présentés dans la partie suivante: ceci 
+permet de suivre l'évolution du projet, et de bien 
+faire une distinction nette entre ce qui relève de Pht de ce qui relève de 
+PeerSim.
+
+<!--
+-------------------------- subsection: Architecture ------------------------
+-->
+
+Les deux classes principales sont PhtNode et
+PhtProtocol. PhtNode représente un noeud Pht soit:
+
+un identifiant,
+les identifiants de son père et de ses fils,
+les identifiants des noeuds directement à gauche et à droite dans l'arbre,
+le nombre de clés qu'il gère,
+des couples (clé, donnée) si c'est une feuille.
+
+
+A ces deux classes s'ajoute deux interfaces (PhtLookups et PhtRangeQueries) qui
+comportent chacune une méthode: recherche exacte pour l'une, recherche sur un 
+intervalle de clés pour l'autre. Ces interface sont implémentées par deux 
+classes qui ont chacunes deux versions: recherches linéaire 
+(PhtLookupLinear) et binaire (PhtLookupBinary) pour les recherches exactes, 
+recherches séquentielle (PhtRangeQuerySequential) et parallèle 
+(PhtRangeQueryParallel) pour les recherches sur un intervalle.
+
+L'interface DhtInterface ne comporte qu'une méthode: dhtLookup. Il s'agit de
+la seule méthode nécessaire: une classe qui implémente l'interface 
+DhtInterface sert d'interface entre Pht et l'implémentation d'une 
+Dht.
+
+Il y a enfin la classe PhtUtil qui ne contient que des méthodes statiques dont
+se servent les différentes classes du paquet.
+
+La figure 1 représente le diagramme de classe avec les classes décrites
+ci-dessus. Ce diagramme ne correspond pas encore au résultat final: un diagramme complet 
+sera présenté à la fin de la partie suivante. Nous présenton des schémas qui 
+reflètent l'évolution du projet.
+
+<!--
+------------------------------ subsection: API  ----------------------------
+-->
+
+Pht offre toutes les opérations requises pour ce
+PSAR, ainsi une implémentation de Pht fournit de fait les quatre opérations 
+demandées, à savoir: insertion d'un couple (clé, valeur), suppression d'un 
+couple (clé, valeur),  recherche d'une clé,  recherche sur un intervalle de clé. 
+
+<!-- ---------- Insertion ---------- -->
+ 
+Insertion. La classe PhtProtocol possède une méthode insertion qui
+permet d'insérer un couple (clé, donnée) dans l'arbre. Pour y arriver, elle 
+fait appel à la Dht pour trouver le noeud Pht responsable de cette clé. Une 
+fois ce noeud trouvé, s'il possède déjà le nombre maximum de couples (clé,
+donnée) qu'il peut posséder, une opération de division est demandée: la méthode
+insertion de la classe PhtProtocol appelle la méthode $splitAndGetNode$ du noeud 
+Pht qui effectue autant de division que nécessaire pour pouvoir accueillir le 
+nouveau couple (clé, donnée) et renvoie l'identifiant de ce noeud. 
+
+Remarque. La constante B, qui
+détermine le nombre maximum de clés que peut avoir une feuille se trouve dans 
+la classe PhtProtocol: les noeuds Pht n'en ont pas connaissance. C'est pour 
+cette raison que la classe PhtProtocol demande explicitement au noeud 
+de se diviser. Nous aurions pu faire autrement et indiquer cette valeur 
+directement dans chaque noeud. Nous avons fait le choix de séparer nettement 
+ce qui relève de Pht, de ce qui relève de la gestion interne des couple 
+(clé, donnée). Cette dernière se fait au niveau de chaque noeud.
+
+<!-- ---------- Suppression ---------- -->
+
+Suppression. Il est possible de supprimer une clé, et sa donnée
+associée, de l'arbre préfixe. Une suppression se fait en trois étapes (maximum). 
+Première étape: commencer par chercher le noeud 
+responsable de la clé via la Dht. Deuxième étape, supprimer la clé du noeud qui 
+la gère, si celui-ci la possède. La troisième étape n'intervient que si cette 
+suppression va à l'encontre de la règle 4 de Pht: 
+
+\emph{4.Chaque noeud interne gère au minimum $B+1$ clés dans ses
+sous-arbres.}
+
+C'est-à-dire: si le père possède moins de B+1 clés suite à cette suppression,
+une opération de fusion de est déclenchée. Les deux fils de ce père transferent 
+chacun tous leurs couples (clé, donnée) à celui-ci, et le père redevient une 
+feuille.
+
+<!-- ---------- Recherche exacte ---------- -->
+
+Recherche exacte. Pht définit deux manières
+d'effectuer une recherche exacte de clé: l'une linéaire, l'autre binaire. La 
+première consiste à retrouver la feuille responsable d'une clé en partant de la 
+racine. La seconde commence par faire une recherche Dht pour un préfixe de la 
+clé de longueur $n/2$, n étant la longueur de la clé: si la recherche échoue, 
+la méthode essaie avec un préfixe plus court, si c'est un noeud interne, 
+avec un préfixe plus long. Et ce de façon séquentielle suite jusqu'à trouver la feuille 
+recherchée. 
+
+Remarque. La méthode linéaire possède deux inconvénients: elle
+créé un goulot d'étranglement à la racine et elle est moins efficace que la méthode 
+binaire. Elle possède toutefois l'avantage de résister aux pannes.
+
+<!-- ---------- Recherche sur un intervalle  ---------- -->
+
+Recherche sur un intervalle. Cette opération constitue le
+principal apport de Pht. Pht propose deux 
+façon de procéder: à l'aide d'une recherche séquentielle, ou à l'aide 
+d'une recherche parallèle. Une recherche séquentielle se déroule ainsi:
+
+	trouver la feuille responsable du début de l'intervalle
+	parcourir les feuilles en utilisant les pointeurs que maintiennent 
+		les feuilles de l'arbre entre elles, jusqu'à arriver à la feuille 
+		responsable de la fin de l'intervalle. 
+
+La recherche parallèle procède de cette manière:
+
+	commencer par chercher le plus petit préfixe commun aux deux valeurs
+		de l'intervalle,
+	des recherches en parallèle sont lancées vers les sous-arbres de ce 
+		noeud, 
+	chaque feuille rencontrée qui fait partie de l'intervalle recherché 
+		est récupérée. 
+
+Puisque le nombre de noeuds est fini, nous pouvons affirmer que l'itération se 
+termine, et que toutes les clés de l'intervalle présentes dans l'arbre ont été 
+trouvées.
+
+Remarque. Ces deux opérations s'appuient sur une recherche
+exacte: soit la recherche linéaire, soit la recherche binaire. Avoir sorti ces 
+méthodes de la classe PhtProtocol permet de gagner en souplesse et ainsi de 
+décider d'une politique à adopter parmi les trois suivantes: 
+
+	utiliser exclusivement la recherche linéaire,
+	utiliser exclusivement la recherche binaire,
+	utiliser la recherche binaire suivi d'une recherche linéaire si la 
+		recherche binaire a échoué.
+
+<!--
+----------------- API -----------------
+-->
+
+Les opérations associées à une Pht sont celles attendues pour ce PSAR: insertion d'un couple
+(clé, donnée), suppression d'un couple (clé, donnée), recherche d'une clé, recherche sur un
+intervalle de clé. L'interface Client définit ces opérations et permet au nœud sur lequel elles
+sont déclenchées de fournir une réponse. Du point de vue utilisateur il suffit d’implémenter
+l'interface Client pour émettre des requêtes et recevoir des réponses.
+
+Dans un premier temps nous supposons qu'une nouvelle requête du client n'arrive que lorsque la
+précédente a été entièrement traitée: la requête elle-même, plus toutes celles de maintenance de
+la Pht qui ont pu être générées par celles-ci.
+
+<!-- --------- Insertion ---------- -->
+
+Insertion. L'insertion d'une couple (clé, donnée) se déroule en quatre étapes:
+
+		 trouver la machine qui possède la feuille Pht responsable de $hash(clé)$,
+		cette machine renvoie un acquittement avec son adresse, et la machine initiatrice envoie la donnée (avec la clé) à insérer,
+		la machine responsable de $hash(clé)$ insère le couple (clé, donnée) dans le feuille Pht et renvoie un acquittement,
+		la machine initiatrice répond au client et lui indique si tout s'est bien déroulé.
+
+Ce processus en quatre étapes a pour but de limiter la quantité de données en transit sur le
+réseau. supposons que la donnée soit de grande taille et que la machine qui détient la feuille Pht
+soit très éloignée de la machine initiatrice: à chaque étape, chaque machine devrait recevoir la
+donnée et la transmettre.
+
+Avec cette solution, les données ne sont transmises que lorsque la feuille Pht a été trouvée. La
+machine qui possède cette feuille répond à la machine initiatrice et le transfert peut démarrer.
+Le surcoût n'est que de deux messages: l'envoi de la donnée et un acquittement supplémentaire.
+
+Une insertion sur une feuille Pht autre que la racine (au début la racine est le seul nœud de
+l'arbre et est donc une feuille), déclenche systématiquement l'envoi d'une message à son père pour
+lui indiquer que le nombre de clés dans son sous-arbre a augmenté de un.
+
+Une opération de \emph{split} peut être déclenchée si le nombre
+de clé est supérieur à la constante \emph{B} du protocole: ("3. Scission
+Chaque feuille gère au plus B clés").
+
+Cette propriété a pour conséquence qu'une insertion peut générer une série de splits à la chaîne:
+tant que toutes les clés partent vers le même fils, la propriété ne sera pas respectée et un
+nouveau split sera déclenché, et ainsi de suite.
+
+Cette conséquence présente un inconvénient majeur en terme de nombre de messages émis sur le
+réseau, et sur l'état général du sous-arbre duquel est parti le premier split. Nous reviendrons
+plus en détail sur ces deux inconvénients dans la partie suivante.
+
+Une solution proposée dans le papier présentant Pht consiste à dire qu'un seul split peut être
+déclenché à la suite d'une insertion et donc que le nombre de clés que possède une feuille peut
+être supérieur à B.
+
+<!-- --------- Suppression ---------- -->
+
+Suppression. La suppression d'une clé ne se fait qu'en deux étapes:
+
+		chercher la feuille responsable de la clé et supprimer la clé si la feuille a été trouvée,
+		renvoyer un acquittement à la machine initiatrice en lui indiquant si la clé a été
+		supprimée ou non.
+
+De la même manière qu'une insertion, une suppression d'une clé dans une feuille déclenche l'envoi
+d'un message à son père pour lui indiquer que le nombre de clés dans son sous-arbre a diminué de
+un. Si le père voit que le nombre de clé dans son sous-arbre est strictement inférieur à la
+constante ''B'', une opération de ''merge'' est déclenchée.
+
+Une suppression peut ainsi entraîner des merge en cascade, on en revient aux mêmes inconvénients
+que pour les insertions: nombre de messages émis et état d'une partie de l'arbre. Une solution
+proposée dans papier présentant Pht est de n'autoriser qu'un seul merge par suppression: un nœud
+interne peut donc se retrouver avec moins de B+1 clés dans ses sous-arbres.
+
+<!-- ---------- Recherche exacte --------- -->
+
+Il y a deux manières d’effectuer une recherche exacte dans une Pht: l’une linéaire, l’autre
+binaire. La première consiste à retrouver la feuille responsable d’une clé en partant de la racine.
+La seconde commence par faire une recherche Dht pour un préfixe de la clé de longueur n/2, n étant
+la longueur de la clé :
+
+		si le nœud n'existe pas (la machine responsable de hash(identifiant) ne possède aucun nœud
+avec l'identifiant cherché), la méthode essaie avec un préfixe plus court,
+		2. si c’est un nœud interne, avec un préfixe plus long.
+
+Et ce de façon séquentielle jusqu’à trouver la feuille recherchée.
+
+La méthode linéaire possède deux inconvénients : elle créé un goulot d’étranglement à la racine et
+elle est moins efficace que la méthode binaire. Elle possède toutefois l’avantage de résister aux
+pannes: un nœud interne peut détecter la panne d'un de ses fils et déclencher une opération de
+maintenance. Par contre, une recherche binaire est incapable de savoir si l'identifiant cherché
+était trop grand (l'arbre ne descend pas aussi ²bas), ou si le nœud existe mais qu'il est tombé.
+
+Le type de la recherche est déterminé par un champ dans la
+classe PhtProcol. Nous reviendrons sur ce point lors de la description des
+principaux composants de ce projet.
+
+<!-- Recherche sur un intervalle -->
+
+Cette opération constitue le principal apport de Pht. Pht propose deux façon de procéder : à l’aide
+d’une recherche séquentielle, ou à l’aide d’une recherche parallèle. Une recherche séquentielle se
+déroule ainsi :
+
+		trouver la feuille responsable du début de l’intervalle,
+		parcourir les feuilles en utilisant les pointeurs que maintiennent les feuilles de l’arbre
+entre elles, jusqu’à arriver à la feuille responsable de la fin de l’intervalle.
+
+La recherche parallèle procède de cette manière :
+
+		commencer par chercher le plus petit préfixe commun aux deux valeurs de l’intervalle,
+		des recherches en parallèle sont lancées vers les sous-arbres de ce nœud,
+		chaque feuille rencontrée qui fait partie de l’intervalle recherché est récupérée.
+
+Puisque le nombre de nœuds est fini, nous pouvons affirmer que l’itération se termine, et que
+toutes les clés de l’intervalle présentes dans l’arbre ont été trouvées.
+
+</p>
+	<footer class="site-footer">
+		<span class="site-footer-owner"><a href="https://github.com/nongbottom/Peersim-pht">Peersim-pht</a> is maintained by <a href="https://github.com/nongbottom">nongbottom</a>.</span>
+
+		<span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+	</footer>
+
+</section>
+
+	</section>
+</body>
+</html>

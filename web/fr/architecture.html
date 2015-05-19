@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="UTF-8">
+    <title>Peersim-Pht by nongbottom</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/normalize.css" media="screen">
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="../stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/github-light.css" media="screen">
+
+    <link href='http://fonts.googleapis.com/css?family=PT+Sans+Narrow' rel='stylesheet' type='text/css'>
+</head>
+<body>
+<section class="page-header">
+    <h1 class="project-name">
+        Peersim-Pht
+        <!--<h2 class="project-tagline">Prefix Hash Tree Implementation for PeerSim</h2>-->
+        <a href="https://github.com/nongbottom/Peersim-pht">
+            <!--View on GitHub-->
+            <img src="../GitHub-Logo2.png"
+                 alt="Github logo"
+                 style="height:42px;width:42px">
+        </a>
+    </h1>
+    <a href="../index.html" class="btn">Home</a>
+    <a href="rapport.html" class="btn">Rapport</a>
+    <a href="../documentation.html" class="btn">Documentation</a>
+
+    <br />
+    <a href="introduction.html" class="rapport">Introduction</a>
+    <a href="contexte.html" class="rapport">Contexte</a>
+    <a href="api.html" class="rapport">API</a>
+    <a href="architecture.html" class="rapport rapport-current">Architecture</a>
+    <a href="choix_implementation.html" class="rapport">Choix d'implémentation</a>
+</section>
+
+<section class="main-content">
+
+    <div class="resume">
+    <p>PeerSim propose deux types de simulation: par événements et par cycle. Un Pht s'appuie sur
+        une
+        Dht. Les trois implémentations de Dht proposées sous forme de paquets sur le site de
+        PeerSim (Chord, Pastry et Kademlia) n'implémentent pas la simulation par cycles.</p>
+
+    <p>La description que nous proposons ici se fait donc pour une estimation par événements.
+        Ceci n'est pas un réel problème, car une simulation par événements est plus adaptée pour
+        une analyse du comportement de Pht en terme de messages émis et de répartition de la
+        charge.</p>
+
+    <p>Le projet est axé autour de deux classes principales PhtProtocol et PhtNode. PhtProtocol
+        contient 0 à n PhtNodes et est responsable de la transmission et de la réception de
+        messages. PhtNode est rattaché à un PhtProtocol et contient les données avec leurs clés.</p>
+
+    <p>Dans un premier temps, nous avons supposé qu'une seul requête est traitée à la fois sur le
+        réseau. Ceci est la façon la plus simple de vérifier que le comportement observé est celui
+        attendu. La deuxième étape consiste à gérer l'arrivée d'une nouvelle requête avant que la
+        précédente ne soit terminée.</p>
+
+    <p>Nous donnons ci-dessous une brève description du rôle des principaux composants du projet.
+          Pour une description plus détaillée, se reporter à la documentation.</p>
+    </div>
+
+
+    <!-- ---------- PhtProtocol ---------- -->
+
+    <h3>PhtProtocol</h3>
+
+    <p>Le rôle principal de PhtProtocol est de gérer les communications entre les nœuds Pht
+        (PhtNode). Cette classe permet aussi à un client d'émettre une requête pour une insertion,
+        une suppression, une recherche exacte ou sur un intervalle.</p>
+
+    <p>La majeure partie de la classe consiste en méthodes pour le
+    traitement des événements (messages) qui arrivent. Une méthode processEvent
+    sert de grand aiguilleur pour déléguer le traitement de messages vers la méthode
+    appropriée: <em>processLinLookup</em> pour une recherche linéaire, <em>processInsertion</em> pour
+    une Insertion, <em>processMerge</em> pour un merge etc. Afin de limiter la taille
+    de l'aiguillage (un switch), une méthode supplémentaire peut être appelée pour
+    les messages d'acquittement. Cette méthode procède de la même manière: diriger
+    un acquittement de recherche linéaire vers <em>processAck_LinLookup</em>, d'une
+    insertion vers <em>processAck_Split</em>, etc.</p>
+
+    <p>La classe PhtProtocol sert d'interface entre les clients et les nœuds Pht et entre les 
+        nœuds Pht eux-mêmes lors des opérations de maintenance de l'arbre.</p>
+
+    <p>Pour stocker les PhtNodes la structure de donnée retenue doit être capable de:</p>
+    
+    <ol>
+    <li>retrouver de manière efficace un nœud avec un identifiant exact,</li>
+    <li>trouver une feuille qui est un préfixe d'une clé.</li>
+    </ol>
+
+    <p>Chaque requête est identifiée de manière unique par un compteur commun à toutes les 
+    instances PhtProtocol. Ceci n'est pas réalisable dans un réseau pair-à-pair totalement 
+    décentralisé. Cependant, dans le cadre d'une simulation, celui-ci nous permet de suivre une
+        requête tout au long de ses étapes. Le débogage devient plus simple.</p>
+
+
+    <!-- --------- PhtNode ---------- -->
+
+    <h3>PhtNode</h3>
+    
+    <p>Le rôle principal de la classe PhtNode est de stocker des couples (clé, donnée) et de 
+    pouvoir y accéder.
+    Les clés et les données associées sont indexés dans une table de
+    hachage: pour une insertion, une suppression ou une recherche exacte le temps
+    pris par chacune de ces opérations est en O(1). Un nœud peut avoir beaucoup de
+        clés, et une
+        telle structure de données permet de répondre de manière efficace: elle connaît
+        l'identifiant de la la feuille suivante et peut donc savoir si il faut lui transmettre la
+        requête ou non. Toutes les feuilles qui transmettent la requête vers la prochaine feuille
+        savent que l'ensemble de leurs clés est inclus dans l'intervalle recherché.</p>
+
+    <p>Un PhtNode maintient également des informations sur ses éventuels fils et son père (sauf la
+    racine qui n'a pas de père): leurs identifiants et une référence vers le nœud PeerSim sur 
+    lequel ils se trouvent. Cette dernière information permet de communiquer directement et ainsi 
+    éviter des routages au niveau de la Dht.</p>
+
+    <!--<h4>Etats d'un noeud</h4>-->
+
+    <!--<img src="../etats.png" alt="états d'un noeud" />-->
+
+    <!--<p>Un noeud Pht possède un champ <em>state</em> qui-->
+    <!--représente son état et celui de chacun de ses fils le long d'un split ou d'un-->
+    <!--merge. La figure ci-dessus illustre les différents-->
+            <!--états que peut traverser un noeud Pht, son fils gauche et son fils droit.</p>-->
+
+    <!--<p>Initialament, un noeud est dans un état stable, lors d'un split-->
+    <!--il passe à l'état WAITING_SPLIT. Il ne passe à l'état suivant que-->
+    <!--lorsque ses deux fils lui ont envoyé un acquittement. Il passe alors à l'état-->
+    <!--ACK_SPLIT. Le processus est similaire pour le passage de ACK_SPLIT à-->
+    <!--ACK_SPLIT_LEAVES, de ACK_SPLIT_LEAVES à-->
+    <!--ACK_SPLT_DATA et enfin de ACK_SPLIT_DATA à STABLE.</p>-->
+
+    <!--<p>Avoir des champs lson et rson pour les fils gauche et droit-->
+    <!--permet de limiter le nombre d'états: chaque champs évolue au rhytme des-->
+    <!--acquittements et l'état du noeud n'évolue que lorsque les deux ont passés-->
+    <!--le même niveau.</p>-->
+
+    <!--<p>Le processus pour les merge est similaire à celui pour les splits.</p>-->
+
+    <!-- --------- PhtMessages ---------- -->
+
+    <h3>PhtMessage</h3>
+
+    <p>Il existe trois classes de messages: <em>PhtMessage</em>,
+    <em>PMLookup</em>, <em>PMRangeQuery</em>. Les messages sont construits à la manière de poupées
+        russes: un PMRangeQuery est dans un PMLookup qui est lui-même dans un Phtmessage.</p>
+
+    <p>Selon la requête, un message peut consister en un simple PhtMessage, un PhtMessage avec un
+    PMLookup, ou encore un PhtMessage avec un PMLookup contenant un PMRangeQuery. Le rôle de
+        PhtMessage est de fournir l'information minimum dont toutes les requêtes ont besoin.</p>
+
+    <p>Lors d'une requête, le même PhtMessage est en circulation: seules les informations
+    supplémentaires que contient un message peuvent changer durant le parcours du message.</p>
+
+
+    <!-- ---------- Interface avec la Dht ---------- -->
+
+    <h3>Interface avec la Dht</h3>
+
+    <p>La structure de données utilisée dans ce projet, doit être indépendante de la Dht sur
+        laquelle elle repose. Pour maintenir cette indépendance, nous avons décrit une interface
+        DhtInterface qui définit les méthodes pour communiquer avec la Dht. Ainsi, il est possible
+        au niveau de la classe PhtProtocol d'envoyer un message via la Dht sans se préoccuper dans
+        la manière dont telle ou telle implémentation de Dht fonctionne.</p>
+
+    <p>Pour l'intégration dans PeerSim nous avons choisi d'utiliser Pastry comme Dht. Nous avons
+    ajouté un paquet peersim.pht.pastry qui fournit une classe implémentant DhtInterface, ainsi que
+        quelques autres classes propres à l'intégration avec Pastry.</p>
+
+
+    <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/nongbottom/Peersim-pht">Peersim-pht</a> is maintained by <a href="https://github.com/nongbottom">nongbottom</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+    </footer>
+
+</section>
+</body>
+</html>

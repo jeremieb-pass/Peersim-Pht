@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="UTF-8">
+    <title>Peersim-Pht by nongbottom</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/normalize.css" media="screen">
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="../stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/github-light.css" media="screen">
+
+    <link href='http://fonts.googleapis.com/css?family=PT+Sans+Narrow' rel='stylesheet' type='text/css'>
+</head>
+<body>
+<section class="page-header">
+    <h1 class="project-name">
+        Peersim-Pht
+        <!--<h2 class="project-tagline">Prefix Hash Tree Implementation for PeerSim</h2>-->
+        <a href="https://github.com/nongbottom/Peersim-pht">
+            <!--View on GitHub-->
+            <img src="../GitHub-Logo2.png"
+                 alt="Github logo"
+                 style="height:42px;width:42px">
+        </a>
+    </h1>
+    <a href="../index.html" class="btn">Home</a>
+    <a href="rapport.html" class="btn">Rapport</a>
+    <a href="../documentation.html" class="btn">Documentation</a>
+
+    <br />
+    <a href="introduction.html" class="rapport">Introduction</a>
+    <a href="contexte.html" class="rapport">Contexte</a>
+    <a href="api.html" class="rapport rapport-current">API</a>
+    <a href="architecture.html" class="rapport">Architecture</a>
+    <a href="choix_implementation.html" class="rapport">Choix d'implémentation</a>
+</section>
+
+<section class="main-content">
+
+    <div class="resume">
+        <p>Les opérations associées à une Pht sont celles attendues pour ce PSAR: insertion d'un couple
+            (clé, donnée), suppression d'un couple (clé, donnée), recherche d'une clé, recherche sur un
+            intervalle de clé. L'interface Client définit ces opérations et permet au nœud sur lequel elles
+            sont déclenchées de fournir une réponse. Du point de vue utilisateur il suffit d’implémenter
+            l'interface Client pour émettre des requêtes et recevoir des réponses.</p>
+
+        <p>Dans un premier temps nous supposons qu'une nouvelle requête du client n'arrive que
+            lorsque la
+            précédente a été entièrement traitée: la requête elle-même, plus toutes celles de maintenance de
+            la Pht qui ont pu être générées par celles-ci.</p>
+    </div>
+
+
+    <!-- ---------- Insertion ---------- -->
+
+    <h3>Insertion</h3>
+
+    <p>L'insertion d'une couple (clé, donnée) se déroule en quatre étapes:</p>
+
+    <ol>
+        <li>trouver la machine qui possède la feuille Pht responsable de <em>hash(cle)</em></li>
+        <li>cette machine renvoie un acquittement avec son adresse, et la machine initiatrice envoie la
+            donnée (avec la clé) à insérer,</li>
+        <li>la machine responsable de <em>hash(clé)</em> insère le couple (clé, donnée) dans le feuille
+            Pht et renvoie un acquittement,</li>
+        <li>la machine initiatrice répond au client et lui indique si tout s'est bien déroulé.</li>
+    </ol>
+
+    <p>Ce processus en quatre étapes a pour but de limiter la quantité de données en transit sur le
+        réseau.
+    Supposons que la donnée soit de grande taille et que la machine qui détient la feuille Pht soit
+    très éloignée de la machine initiatrice: à chaque étape, chaque machine devrait recevoir la donnée
+    et la transmettre.</p>
+
+    <p>Avec cette solution, les données ne sont transmises que lorsque la feuille Pht a été
+          trouvée. La
+    machine qui possède cette feuille répond à la machine initiatrice et le transfert peut démarrer.
+    Le surcoût n'est que de deux messages: l'envoi de la donnée et un acquittement supplémentaire.</p>
+
+    <p>Une insertion sur une feuille Pht autre que la racine (au début la racine est le seul nœud de
+    l'arbre et est donc une feuille), déclenche systématiquement l'envoi d'une message à son père pour
+    lui indiquer que le nombre de clés dans son sous-arbre a augmenté de un.</p>
+
+    <p>Une opération de <em>split</em> peut être déclenchée si le nombre de clé est supérieur à la
+    constante <em>B</em> du protocole (<em>N.B.: Chaque feuille gère au plus B clés</em>).</p>
+
+    <p>Cette propriété a pour conséquence qu'une insertion peut générer une série de splits à la
+    chaîne:
+    tant que toutes les clés partent vers le même fils, la propriété ne sera pas respectée et un
+    nouveau split sera déclenché, et ainsi de suite.</p>
+
+    <p>Cette conséquence présente un inconvénient majeur en terme de nombre de messages émis sur le
+    réseau, et sur l'état général du sous-arbre duquel est parti le premier split. Nous reviendrons
+    plus en détail sur ces deux inconvénients dans la partie <a href="choix_implementation.html">
+    Choix d'implémentations</a>.</p>
+
+    <p>Une solution proposée dans le papier présentant Pht consiste à dire qu'un seul split peut
+        être
+    déclenché à la suite d'une insertion et donc que le nombre de clés que possède une feuille peut
+    être supérieur à B.</p>
+
+
+    <!-- --------- Suppression --------- -->
+
+    <h3>Suppression</h3>
+
+    <p>La suppression d'une clé se fait en deux étapes:</p>
+
+    <ol>
+        <li>chercher la feuille responsable de la clé et supprimer la clé si la feuille a été trouvée,</li>
+        <li>renvoyer un acquittement à la machine initiatrice en lui indiquant si la clé a été supprimée
+            ou non.</li>
+    </ol>
+
+    <p>De la même manière qu'une insertion, une suppression d'une clé dans une feuille déclenche
+    l'envoi
+    d'un message à son père pour lui indiquer que le nombre de clés dans son sous-arbre a diminué de un.
+    Si le père voit que le nombre de clé dans son sous-arbre est strictement inférieur à la constante
+    <em>B</em> une opération de <em>merge</em> est déclenchée.</p>
+
+    <p>Une suppression peut ainsi entraîner des merge en cascade, on en revient aux mêmes
+         inconvénients
+    que pour les insertions: nombre de messages émis et état d'une partie de l'arbre. Une solution
+    proposée dans papier présentant Pht est de n'autoriser qu'un seul merge par suppression: un nœud
+    interne peut donc se retrouver avec moins de <em>B + 1</em> clés dans ses sous-arbres.</p>
+
+    <!-- --------- Recherche exacte ---------- -->
+
+    <h3>Recherche exacte</h3>
+
+    <p>Il y a deux manières d’effectuer une recherche exacte dans une
+    Pht: l’une linéaire, l’autre binaire. La première consiste à retrouver la
+    feuille responsable d’une clé en partant de la racine. La seconde commence par
+    faire une recherche Dht pour un préfixe de la clé de longueur <em>n/2</em> n étant la
+        longueur de la
+    clé :</p>
+
+    <ul>
+    <li>si le nœud n'existe pas (la machine responsable de hash(identifiant) ne possède aucun nœud
+        avec l'identifiant cherché), la méthode essaie avec un préfixe plus court,</li>
+    <li>si c’est un nœud interne, avec un préfixe plus long.</li>
+    </ul>
+
+    <p>Et ce de façon séquentielle jusqu’à trouver la feuille recherchée.</p>
+
+    <p>La méthode linéaire possède deux inconvénients : elle créé un goulot d’étranglement à la
+        racine et
+    elle est moins efficace que la méthode binaire. Elle possède toutefois l’avantage de résister aux
+    pannes: un nœud interne peut détecter la panne d'un de ses fils et déclencher une opération de
+    maintenance. Par contre, une recherche binaire est incapable de savoir si l'identifiant cherché
+    était trop grand (l'arbre ne descend pas aussi bas), ou si le nœud existe mais qu'il est
+        tombé.</p>
+
+    <p>Le type de la recherche est déterminé par un champ dans la classe PhtProtocol. Nous
+         reviendrons
+    sur ce point lors de la description de l'architecture du projet.</p>
+
+
+    <!-- ---------- Recherche sur un intervalle ---------- -->
+
+    <h3>Recherche sur un intervalle</h3>
+
+    <p>Cette opération constitue le principal apport de Pht. Pht propose deux façon de procéder : à
+    l’aide d’une recherche séquentielle, ou à l’aide d’une recherche parallèle. Une recherche
+    séquentielle se déroule ainsi :</p>
+
+    <ol>
+        <li>trouver la feuille responsable du début de l’intervalle,</li>
+        <li>parcourir les feuilles en utilisant les pointeurs que maintiennent les feuilles de l’arbre
+        entre elles, jusqu’à arriver à la feuille responsable de la fin de l’intervalle.</li>
+    </ol>
+
+    <p>La recherche parallèle procède de cette manière :</p>
+
+    <ol>
+        <li>commencer par chercher le plus petit préfixe commun aux deux valeurs de l’intervalle,</li>
+        <li>des recherches en parallèle sont lancées vers les sous-arbres de ce nœud,</li>
+        <li>chaque feuille rencontrée qui fait partie de l’intervalle recherché est récupérée.</li>
+    </ol>
+
+    <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/nongbottom/Peersim-pht">Peersim-pht</a> is maintained by <a href="https://github.com/nongbottom">nongbottom</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+    </footer>
+
+</section>
+</body>
+</html>

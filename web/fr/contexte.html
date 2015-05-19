@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="UTF-8">
+    <title>Peersim-Pht by nongbottom</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/normalize.css" media="screen">
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="../stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/github-light.css" media="screen">
+
+    <link href='http://fonts.googleapis.com/css?family=PT+Sans+Narrow' rel='stylesheet' type='text/css'>
+</head>
+<body>
+<section class="page-header">
+    <h1 class="project-name">
+        Peersim-Pht
+        <!--<h2 class="project-tagline">Prefix Hash Tree Implementation for PeerSim</h2>-->
+        <a href="https://github.com/nongbottom/Peersim-pht">
+            <!--View on GitHub-->
+            <img src="../GitHub-Logo2.png"
+                 alt="Github logo"
+                 style="height:42px;width:42px">
+        </a>
+    </h1>
+    <a href="../index.html" class="btn">Home</a>
+    <a href="rapport.html" class="btn">Rapport</a>
+    <a href="../documentation.html" class="btn">Documentation</a>
+
+    <br />
+    <a href="introduction.html" class="rapport">Introduction</a>
+    <a href="contexte.html" class="rapport rapport-current">Contexte</a>
+    <a href="api.html" class="rapport">API</a>
+    <a href="architecture.html" class="rapport">Architecture</a>
+    <a href="choix_implementation.html" class="rapport">Choix d'implémentation</a>
+</section>
+
+<section class="main-content">
+
+    <div class="resume">
+        <p>Ce PSAR comporte deux aspects: une structure de données  qui nous permette de
+            répondre au cahier des charges, et son intégration dans PeerSim. Dans le choix
+            de cette structure de données, il existe deux approches: celles qui reposent sur une
+            Dht générique, et celles qui dépendent d'une implémentation particulière.
+            Nous en avons choisi une qui correspond à la première approche: Pht. Celui-ci peut
+            être déployé avec n'importe quelle Dht.
+            Notre implémentation de Pht repose donc sur une Dht dans PeerSim (fournie
+            sous forme de paquet), et s'intègre dans l'environnement de simulation. Pour y
+            parvenir, il a fallu écrire une interface avec une Dht (le choix n'a pas
+            d'importance ici). Cette interface permet de:</p>
+
+        <ol>
+            <li>maintenir l'indépendance complète de Pht vis-à-vis de telle ou telle
+                implémentation de Dht,</li>
+            <li>s'adapter à une Dht en particulier pour les simulations.</li>
+        </ol>
+
+        <p>Le dernier point signifie que toutes les Dht proposent des opérations
+            d'insertion, de suppression et de recherche mais il peut y avoir des nuances
+            au niveau du code en Java.</p>
+    </div>
+
+    <h3>Dht</h3>
+
+    <p>Quel est le principe général d'un protocole utilisant une Dht ?
+    Chaque noeud du réseau possède un identifiant sur k bits, le résultat d'une
+    fonction de hachage uniforme. Lorsqu'une donnée est insérée dans le réseau, une clé est
+    générée à partir du nom du fichier ou de son contenu (avec la même fonction de
+    hachage que celle des noeuds du réseau). Le noeud responsable de cette donnée
+    est le noeud dont l'identifiant est le plus proche de la clé. Lorsque la donnée
+    est insérée dans le réseau avec sa clé, celle-ci devra parcourir des noeuds du
+    réseau jusqu'à trouver son hôte. Les différences entre les protocoles résident
+    dans les choix sur la politique de routage, et sur les
+    informations que chaque noeud a du réseau: voisins proches
+    géographiquement / numériquement.</p>
+
+    <p>Le principal
+    avantage d'une Dht devient dans notre cas une limitation: les recherches exactes. En
+    distribuant uniformément les clés sur l'ensemble des valeurs possibles, la
+    fonction de hachage casse la proximité entre les données: deux noms de fichiers
+    très proches vont avoir des clés éloignées, de même des valeurs proches (distance
+    parcourue lors d'un jogging par exemple) vont aussi avoir des clés éloignées.
+    Le hachage uniforme permet de répartir la charge équitablement entre les noeuds du
+    réseau. Mais en même temps il empêche de faire des recherches sur des
+    intervalles de clés.</p>
+
+
+    <p>Il existe de nombreuses implémentations de Dht, toutes offrent le
+    même service: insérer, retrouver, chercher une clé donnée. Pour y arriver,
+    chaque protocole fait des choix sur la quantité d'informations que chaque
+    noeud du réseau maintient, et sur la complexité de l'opération de recherche.
+    Ces deux points influent sur le nombre de messages émis au sein du réseau.
+    La maintenance est beaucoup plus lourde dans un système
+    pair-à-pair que dans un système clients-serveur car le système est décentralisé
+    et le nombre de départs et d'arrivées de noeuds par unité de temps peut être
+    très élevé (et surtout très variable). A titre d'exemple, nous présentons
+    brièvement deux des premières implémentations de Dht: <b>Chord</b> et <b>Pastry</b>
+    </p>
+
+    <h4>Chord</h4>
+
+    <p>
+    Chord est un protocole dévelopé par la Defense Advanced Research Projects
+    Agency (DARPA) américaine, il a été publié en 2001. Chord utilise une topologie
+    en anneau, où chacune des 2<sup>k</sup> valeurs possibles représente un point de l'anneau.
+    Ceux-ci sont disposés en ordre croissant et on définit la fonction $successeur(K)$ comme
+    étant soit le noeud dont l'identifiant est égal à K, soit le noeud qui suit immédiatement
+    K sur l'anneau. Pour effectuer ses recherches, chaque noeud maintient une
+    table à k entrées, où chaque entrée i correspond au <em>2<sup>i-1</sup>-ème</em> successeur de
+    noeud avec <em>1 &le; i &le; k</em>. La complexité est celle attendue:
+        <em>O(log<sub>2</sub> N)</em>.
+    Chord est ainsi relativement simple tout en étant efficace dans le cas général.
+    Toutefois, il souffre d'un défaut: il ne prend pas en compte la distance
+    géographique entre les noeuds. Dans le pire des cas, une opération de recherche
+    peut ainsi faire plusieurs fois le tour du monde, ce qui a des conséquences en
+    terme de performances.
+    </p>
+
+    <h4>Pastry</h4>
+
+    <p>Pastry est un protocole qui maintient un nombre plus important
+    d'informations sur le réseau, notamment sur la distance géographique entre les
+    noeuds. Pour y parvenir, Pastry maintient trois ensembles:</p>
+
+    <ol>
+    <li>un leafset qui comporte les L noeuds les plus proches
+    numériquement,</li>
+    <li>une table de voisinage qui contient les M noeuds les plus proches
+    géographiquement,</li>
+    <li>et enfin une table de routage.</li>
+    </ol>
+
+    <p>Le leafset permet de router directement un message
+    sans passer par la table de routage, la table de voisinage permet de retenir
+    les noeuds les plus proches géographiquement dans la table de routage parmi les
+    différents candidats possibles. A chaque ligne <em>i</em> de la table de routage de
+    Pastry, tous les noeuds ont tous en commun les <em>i</em> premiers chiffres de l'identifiant
+    du noeud. Ceci permet d'acheminer un message: si les identifiants sont codés en
+    base binaire, le message se rapproche de sa destination à chaque étape.</p>
+
+    <h3>Protocoles reposant sur une Dht</h3>
+
+    <p>Pour ce PSAR, nous cherchons un structure de données
+    qui permette d'effectuer des recherches sur un intervalle de clés.
+    Ceci a fait
+    l'objet de recherches et il en existe plusieurs qui offrent ces
+    fonctionnalités. Nous en présenterons deux: Dst et Pht.
+    Ces structures de données proposent de maintenir la proximité entre les données,
+    et permettent d'effectuer des opérations plus complexes.</p>
+
+
+    <h4>Prefix Hash Tree</h4>
+    <p>Pht partitionne l'espace des clés sur un
+    arbre préfixe. Chaque noeud de l'arbre possède un identifiant binaire, chaque
+    noeud Pht est géré par le noeud Dht dont l'identifiant est le plus proche de
+    <em>hash(identifiant_du_noeud)</em> L'arbre est ainsi distribué sur le réseau et
+    chaque noeud interne doit effectuer une recherche Dht pour retrouver ses
+    éventuels père et fils.
+    Pht mémorise les clés dans les feuilles de l'arbre. Chaque noeud
+    de l'arbre possède un identifiant <em>l</em> de longueur <em>len(l)</em> et chaque noeud
+    interne possède deux fils dont les identifiants sont <em>l0</em> et <em>l1</em> de longueur
+    <em>len(l) + 1</em> chacun.</p>
+
+    <p>Propriétés invariantes dans un Pht:</p>
+
+    <ol>
+        <li><b>Prefix universel</b> Chaque noeud a 0 ou 2 fils.</li>
+        <li><b>Stockage de clés</b> Une clé K est stockée dans une feuille dans
+            l'identifiant est un préfixe de K.</li>
+        <li><b>Scission</b> Chaque feuille gère au plus <em>B</em> clés.</li>
+        <li><b>Fusion</b> Chaque noeud interne gère au minimum <em>B+1</em> clés dans ses
+            sous-arbres.</li>
+        <li><b>Liens entre feuilles</b> Chaque feuille maintient un pointeur vers
+            la feuille immédiatement à sa gauche et un autre vers la feuille
+            immédiatement à sa droite.</li>
+    </ol>
+
+    <p>Pht est une structure de donnée simple et efficace qui est adopté par des
+    applications au-delà du monde de la recherche. Il s'agit de la structure de donnée que nous
+    avons choisi pour implémenter le système d'indexation voulu. Nous reviendrons
+    plus en détail sur le fonctionnement de Pht dans la partie suivante.</p>
+
+    <!-- ---------- Dst ---------- -->
+
+    <h4>Distributed Segment Tree</h4>
+    <p>Dst est un arbre binaire où chaque noeud
+    représente un intervalle de clés: la racine couvre l'ensemble des clés de
+    l'arbre, et chacun des sous-arbres gauche et droite en couvre la moitié. Une
+    feuille de l'arbre ne couvre qu'une seule clé. Contrairement à Pht, les clés sont
+    stockées dans les noeuds. Afin d'éviter une surcharge de certains noeuds, Dst
+    propose un seuil au-delà duquel un noeud interne n'accepte plus de clés. Dst
+    permet d'effectuer des recherches exactes et sur intervalle, comme Pht.</p>
+
+
+    <!--
+    ---------------------------- PeerSim ---------------------------
+    -->
+
+    <p>PeerSim est un logiciel de simulation de système pair-à-pair écrit
+    en Java. PeerSim est modulaire: tous ses composants peuvent  être modifiés et
+    il est relativement aisé d'implémenter de nouveaux protocoles. Les simulations
+    sont de deux sortes: par cycles ou par événement. Tous les choix faits pour une
+    simulation se font dans un fichier de configuration dans lequel les différentes
+    couches sont décrites (Pastry, Pht, connexions entre les noeuds, départs et
+    arrivées des noeuds, comportements aléatoires). Il est également possible de transmettre
+    des paramètres aux protocoles.</p>
+
+    <p>Il est possible de lancer deux types de simulation, par
+    événement, par cycle. Dans le premier cas, les noeuds effectuent des
+    actions de manière séquentielle, lorsqu'ils le peuvent: par exemple lors
+    d'un message. Il n'y a pas de concurrence dans ce type de simulation. Au contraire, le
+    second cas autorise le traitement de plusieurs événements à la fois.
+    Ce modèle permet d'obtenir une simulation plus proche de la
+    réalité, toutefois le premier permet de mieux appréhender le comportement
+    général d'un protocole au prix de certaines simplifications.</p>
+
+    <p>Dans Peersim, chaque noeud du réseau de la simulation possède une
+    pile de protocoles. La communication entre protocoles se fait à l'aide des
+    identifiants de chacun d'entre eux: en connaissant l'identifiant d'un protocole
+    X, un protocole Y peut utiliser les services qu'il propose.</p>
+
+
+    <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/nongbottom/Peersim-pht">Peersim-pht</a> is maintained by <a href="https://github.com/nongbottom">nongbottom</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+    </footer>
+
+</section>
+
+    </section>
+</body>
+</html>
