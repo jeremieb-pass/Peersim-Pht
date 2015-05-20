@@ -37,7 +37,156 @@
 
 <section class="main-content">
 
+    <h3>Insertions et suppressions</h3>
 
+    <p>Limiter le nombre de splits à un par insertion offre un gain non
+    négligeable dans le pire cas: un PHT a une hauteur maximale de D, le nombre de
+    splits évités est de l'ordre de <em>O(D)</em>. Dans le cas général, ce gain ne sera pas
+        nécessairement très élevé, mais cette solution n'ajoute aucun message.</p>
+
+    <p>La même solution appliquée aux suppressions (un merge maximum par suppression) a pour
+        conséquence d'éviter un effet yo-yo sur l'ensemble d'un sous-arbre. Imaginons qu'une
+        insertion entraîne une série de splits, et que très rapidement une suppression ait l'effet
+        inverse. Ces opérations vont non seulement générer une hausse du trafic sur le réseau,
+        mais elles vont aussi compliquer la gestion des requêtes qui arrivent vers ce sous-arbre
+        pendant la division ou la fusion de nœuds.
+
+    <p>Nous dirons qu'un nœud est dans un état stable lorsqu'il n'est impliqué dans aucun split ou
+        merge en cours. Il sera dit instable dans le cas contraire.</p>
+
+    <p>Lorsqu'une requête arrive sur un nœud instable, il y a trois comportements possibles:</p>
+    <ol>
+        <li>Insérer la requête dans une file d'attente,</li>
+        <li>Insérer la requête dans un tableau de de requêtes s'il n'est pas déjà plein, sinon renvoyer
+            un message d'erreur,</li>
+        <li>Systématiquement renvoyer un message d'erreur.</li>
+    </ol>
+    
+    <p>Les deux premiers comportements peuvent sembler plus naturels, mais ils ont tous les deux un
+         inconvénient majeur (et rédhibitoire dans le cas général): si la requête comporte une
+        donnée à insérer, la donnée sera stockée. Or, la donnée peut être de n'importe quel type
+        et de n'importe quelle taille.</p>
+
+    <p>Imaginons ce qui peut se passer dans le pire cas avec une file et des demandes d'insertion
+    pour une feuille. La feuille est instable et stocke les requêtes et les données à insérer dans
+        la file jusqu'à devenir stable. Le premier problème qui se pose est la taille que peut
+        prendre la file si les demandes de requêtes arrivent en très grand nombre. Le deuxième
+        problème est que cette feuille peut déclencher un split si elle se retrouve avec plus de
+        B clés. Or, s'il reste des requêtes à traiter, il va falloir les transmettre à ses fils.
+        Ceci va:</p>
+    <ol>
+    <li>Accroître le trafic entre ces nœuds lors de la transmission de clés et des données au
+        fils,</li>
+    <li>Augmenter le temps qu'il faudra au fils pour passer à l'état stable (réception des clés,
+        puis réception des requêtes dont il se retrouve responsable).</li>
+    </ol>
+
+    <p>Utiliser un tableau ne règle ces problèmes que partiellement: les données qui sont
+              susceptibles d'être stockées sont toujours de taille inconnue.</p>
+
+    <p>La troisième comportement (systématiquement renvoyer un message d'erreur lorsqu'un nœud est
+    dans un état instable) a l'avantage de ne pas entraîner une surconsommation de mémoire dans le
+        pire cas. Nous avons choisi celle-ci pour implémenter PHT.</p>
+
+    <p>Rappelons ici que deux nœuds PHT peuvent se trouver sur la même machine. Une machine peut
+               donc avoir plusieurs feuilles. Or, si ces feuilles ont chacune une file ou un
+        tableau de requêtes en attente, le surcoût en mémoire peut avoir un impact très négatif sur
+        les performances de la machine. Ceci peut aller jusqu'à créer un goulot d'étranglement sur
+        le réseau.</p>
+
+    <p>Cette possibilité peut aussi se produire avec le troisième comportement, mais elle est moins
+           probable. De plus, si un nœud devient un goulot d'étranglement avec la troisième
+        comportement, cela serait aussi arrivé avec les deux autres comportements.</p>
+
+    <p>De la même manière, si une machine possède plusieurs feuilles, créées suite à un split, qui
+        attendent des données de leur père, alors le trafic absorbé par cette machine peut
+        dégrader ses robustesse.</p>
+
+    <p>Dans de nombreux cas, le troisième comportement va augmenter le temps mis pour traiter une
+          requête, mais il a l’avantage d'offrir des garanties en terme de performances.</p>
+
+
+    <!-- ---------- Recherches sur un intervalle ---------- -->
+
+    <h3>Recherches sur un intervalle</h3>
+
+    <p>Dans le pire des cas, une recherche parallèle est plus rapide
+    qu'une recherche séquentielle: chaque requête en parallèle nécessitera <em>O(D)</em>
+    étapes pour arriver à une feuille, et le temps de la recherche est
+    proportionnel à la hauteur de l'arbre. En revanche, une recherche séquentielle
+    nécessite <em>O(2<sup>h</sup>)</em> (où h est la hauteur de l'arbre, <em>0 &le; h &le;
+    D</em>) étapes afin de traverser tous les nœuds qui possèdent les clés dans l'intervalle
+    recherché.</p>
+
+    <p>Dans le meilleur des cas (une feuille contient toutes les clés de l'intervalle), les deux
+    recherches mettent autant de temps: le temps d'une recherche exacte.</p>
+
+    <p>Si le seul critère considéré est le temps, la recherche parallèle offre de meilleures
+        garanties dans le pire cas et sera plus rapide dans le cas général.</p>
+
+    <p>Toutefois, cette garantie a un coût: le nombre de messages émis. Ceci est
+    particulièrement vrai dans le pire cas: celui où la recherche part de la racine et cherche
+        toutes les clés de l'arbre.</p>
+
+
+    <h4>Terminaison de la recherche</h4>
+
+    <p>Après qu'une recherche a démarré, il est nécessaire de savoir quand elle se termine afin de
+    notifier le client. Là encore, la recherche en parallèle a un coût qui peut être très élevé: il
+        faut qu'un nœud envoie un acquittement global pour indiquer que la recherche est terminée
+        et qu'il n'est plus nécessaire d'attendre des transferts.</p>
+
+    <p>Pour la recherche séquentielle, deux options sont possibles:</p>
+    <ol>
+        <li>lorsqu'un nœud a transmis la requête il attend un acquittement de son successeur et
+            acquitte à son tour son prédécesseur,</li>
+        <li>un compteur contenu dans le message de la requête est incrémenté à chaque feuille.</li>
+    </ol>
+    
+    <p>Dans la première option, si l'intervalle est compris dans N
+    feuilles, il y a N requêtes transmises et N acquittements. Dans la seconde,
+    aucun acquittement n'est nécessaire: la dernière feuille de la recherche
+    indique au client combien de messages il est censé avoir reçu. Le client compte
+    les nœuds qui lui ont envoyé un message jusqu'à recevoir le message de cette
+    feuille. S'il avait reçu des messages de N-1 nœuds, la recherche est terminée,
+    sinon il sait combien de nœuds doivent encore lui répondre. Le nombre de
+    messages pour détecter la terminaison d'une recherche séquentielle est dans le
+    deux cas de l'ordre de <em>O(2<sup>h</sup>)</em>. Notons que cette valeur n'est atteinte que
+    lorsque l'arbre est parfaitement équilibré, ce qui est peu probable en général.
+    Dans une situation courante le nombre de messages sera nettement inférieur à
+    <em>2<sup>h</sup></em>.</p>
+
+    <p>La terminaison pour une recherche parallèle est plus complexe et nécessite plus de messages.
+        Lorsqu'un nœud propage une requête à ses fils, il doit attendre
+    un acquittement de chacun de ces fils avant d'envoyer un acquittement à son
+    père. Dans le pire cas, tous les nœuds (internes et feuilles) voient passer une
+    requête, et tous les nœuds internes reçoivent et transmettent des
+    acquittements. Le nombre de messages pour détecter la terminaison dans le pire
+    cas est donc de l'ordre de <em>O(N)</em> (où N est le nombre de noeuds de l'arbre). Si l'on
+        exprime ce nombre de messages en fonction de la hauteur de l'arbre, la complexité devient
+    <em>O(2<sup>h</sup>)</em>, toujours dans le pire cas.</p>
+
+    <p>Dans le pire cas les deux types de recherche sur intervalle ont la même complexité en termes
+          de nombre de messages émis pour détecter la terminaison de la recherche. Cependant on
+        peut noter deux choses:</p>
+
+    <ol>
+    <li>La version avec compteur de la recherche séquentielle n'implique aucun acquittement et
+        chaque feuille sur le chemin de la recherche ne reçoit qu'un seul message.</li>
+    <li>La recherche séquentielle n'implique que les feuilles, tandis que la recherche parallèle
+        peut faire participer tout l'arbre dans le pire cas.</li>
+    </ol>
+    
+    <p>Le principal inconvénient d'une recherche parallèle est qu'elle peut faire intervenir la
+    racine de l'arbre: il suffit que le plus petit préfixe commun entre les deux bornes de
+        l'intervalle soit nul. Or ce comportement a comme risque de créer un goulot d'étranglement
+        à la racine. On touche ici à un des points faibles de PHT: la racine est un nœud qui peut
+        être fortement sollicité, ce qui pose un problème d'équilibre des charges.</p>
+
+    <p>Les deux recherches (séquentielle et parallèle) sont possibles, le choix de l'une ou de
+    l'autre dépend des compromis que l'on est prêt à faire sur le nombre de messages ou le temps
+        d'exécution de la recherche.</p>
+    
     <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/nongbottom/Peersim-pht">Peersim-pht</a> is maintained by <a href="https://github.com/nongbottom">nongbottom</a>.</span>
 
