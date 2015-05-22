@@ -2526,12 +2526,7 @@ public class PhtProtocol implements EDProtocol {
                 pnfe.printStackTrace();
             }
         } catch (CantSplitException cse) {
-            if (this.eHandler != null) {
-                this.eHandler.handle(cse);
-            } else {
-                cse.printStackTrace();
-            }
-
+            cse.printStackTrace();
         } catch (NoDataSplitData ndsde) {
             ndsde.printStackTrace();
         }
