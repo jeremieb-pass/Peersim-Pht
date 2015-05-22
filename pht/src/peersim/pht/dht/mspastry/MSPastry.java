@@ -1,10 +1,10 @@
-package peersim.pht.dht;
+package peersim.pht.dht.mspastry;
 
 import peersim.config.Configuration;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.pastry.MSPastryProtocol;
-import peersim.pht.DhtInterface;
+import peersim.pht.dht.DhtInterface;
 import peersim.pht.PhtUtil;
 import peersim.pht.messages.PhtMessage;
 
@@ -38,10 +38,8 @@ public class MSPastry implements DhtInterface, EDProtocol {
 
         code = PhtUtil.hashMe(dest);
         recipient = new BigInteger(code);
-        MSPClient.lock();
+//        peersim.pht.examples.mspastry.MSPClient.lock();
         System.out.printf("\n[[%d]] PHT MSPastry::send %s\n\n", this.msp.nodeId, recipient);
-//        this.msp.setMspastryid(this.mspId);
-
 
         this.msp.send( recipient, message);
     }

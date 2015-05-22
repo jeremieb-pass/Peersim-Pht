@@ -4,13 +4,14 @@ import peersim.config.Configuration;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
-import peersim.pht.dht.MSPClient;
-import peersim.pht.dht.MSPastryListener;
+import peersim.pht.dht.DhtInterface;
+import peersim.pht.dht.mspastry.MSPastryListener;
 import peersim.pht.exceptions.*;
 //import peersim.pht.tests.EDSimulator;
 import peersim.edsim.EDSimulator;
 import peersim.pht.messages.*;
 
+import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
@@ -47,16 +48,29 @@ public class PhtProtocol implements EDProtocol {
     private static final int PHT_LOOKUP      = 4;
     private static final int PHT_RANGE_QUERY = 5;
 
-
+    /*
+     * Counters used for range queries
+     * rqCount: number of message received (number of leaves who send a message
+     * to initiator of the query)
+     * rqTotal: total number of message to be received (send by the last leaf
+     * of the range query
+     */
     private int rqCount = 0;
     private int rqTotal = 0;
 
     private static String prefix;
 
+    /*
+     * infoLogOk: to infoLog or not to infoLog
+     * infoLogCount: infoLogs are not written at each event
+     */
+//    private static Logger log;
     private static boolean logOk;
-    private static int logCount;
-    private static StringBuffer logBuf;
-    private static FileWriter logFile;
+    private static BufferedWriter logWriter;
+
+    /* Change the default behaviour when an exception is catched
+     * (print some informations and continue) */
+    private ExceptionHandler eHandler;
 
     /* The dht provides the basic operation that we need */
     private DhtInterface dht;
@@ -67,8 +81,8 @@ public class PhtProtocol implements EDProtocol {
 
     private static int phtid;
 
-    private final int currentLookup     = PhtMessage.LIN_LOOKUP;
-    private int currentRangeQuery = PhtMessage.PAR_QUERY;
+    private final int currentLookup = PhtMessage.LIN_LOOKUP;
+    private int currentRangeQuery   = PhtMessage.PAR_QUERY;
 
     private Node node;
     private int state;
@@ -76,7 +90,8 @@ public class PhtProtocol implements EDProtocol {
     private final ConcurrentHashMap<String, PhtNode> nodes;
 
     /* Map a request id with a client */
-    private final Map<Long, Client> clients;
+//    private final Map<Long, Client> clients;
+    private static Client sClient;
 
     public PhtProtocol(DhtInterface dht) throws IOException {
         this(dht, 2, 6, 1);
@@ -90,39 +105,35 @@ public class PhtProtocol implements EDProtocol {
         this.dht        = dht;
         this.node       = dht.getNode();
         this.nodes      = new ConcurrentHashMap<String, PhtNode>();
-        this.clients    = new TreeMap<Long, Client>();
-
-        logCount = 0;
-        logOk    = true;
-        logBuf   = new StringBuffer(10);
-        logFile  = new FileWriter("phtprotocol_tests.log");
+//        this.clients    = new TreeMap<Long, Client>();
     }
 
     public PhtProtocol(String prefix) throws IOException {
-        String logValue = Configuration.getString(prefix + ".log");
         int dhtid = Configuration.getPid(prefix + "." + "dht");
 
         PhtProtocol.prefix = prefix;
+        PhtProtocol.B      = Configuration.getInt(prefix + "." + "B");
+        PhtProtocol.D      = Configuration.getInt(prefix + "." + "D");
 
-        PhtProtocol.B = Configuration.getInt(prefix + "." + "B");
-        PhtProtocol.D = Configuration.getInt(prefix + "." + "D");
+        // Range queries
         if (Configuration.getString(prefix + ".rq").equals("seq")) {
             this.currentRangeQuery = PhtMessage.SEQ_QUERY;
         } else {
             this.currentRangeQuery = PhtMessage.PAR_QUERY;
         }
 
+        // Logs
+        logOk = Configuration.getString(prefix + ".log").equals("on");
+        if (logOk) {
+            int size      = Configuration.getInt(prefix + ".logSz");
+            FileWriter fw = new FileWriter("pht.log");
+            logWriter     = new BufferedWriter(fw, size);
+        }
+
+        this.nodes      = new ConcurrentHashMap<String, PhtNode>();
+//        this.clients    = new TreeMap<Long, Client>();
         this.state      = PHT_INIT;
         phtid           = dhtid + 1;
-        this.nodes      = new ConcurrentHashMap<String, PhtNode>();
-        this.clients    = new TreeMap<Long, Client>();
-
-        logOk = logValue.equals("on");
-        if (logOk) {
-            logCount = 0;
-            logBuf   = new StringBuffer(10);
-            logFile  = new FileWriter("phtprotocol.log", false);
-        }
     }
 
     /* _________________________________     ________________________________ */
@@ -142,11 +153,12 @@ public class PhtProtocol implements EDProtocol {
         }
 
         nextId++;
-        this.clients.put(nextId, client);
+//        this.clients.put(nextId, client);
+        sClient = client;
         this.currentData = data;
         this.state       = PHT_INSERTION1;
 
-        log(String.format("((%d)) insertion (%s, %s)    [%d]\n",
+        infoLog(String.format("((%d)) insertion (%s, %s)    [%d]\n",
                 nextId, key, data, this.node.getID()));
 
         query(key, PhtMessage.INSERTION, nextId);
@@ -163,11 +175,12 @@ public class PhtProtocol implements EDProtocol {
      */
     public long suppression(String key, Client client) {
         nextId++;
-        this.clients.put(nextId, client);
+//        this.clients.put(nextId, client);
+        sClient = client;
         this.state = PHT_SUPPRESSION;
 
-        log( String.format("((%d)) suppression (%s)    [%d]\n",
-                nextId, key, this.node.getID()) );
+        infoLog(String.format("((%d)) suppression (%s)    [%d]\n",
+                nextId, key, this.node.getID()));
 
         query(key, PhtMessage.SUPRESSION, nextId);
 
@@ -188,11 +201,12 @@ public class PhtProtocol implements EDProtocol {
         }
 
         nextId++;
-        this.clients.put(nextId, client);
+//        this.clients.put(nextId, client);
+        sClient = client;
         this.state = PHT_LOOKUP;
 
-        log( String.format("((%d)) query (%s)    [%d]\n",
-                nextId, key, this.node.getID()) );
+        infoLog(String.format("((%d)) query (%s)    [%d]\n",
+                nextId, key, this.node.getID()));
 
         query(key, this.currentLookup, nextId);
 
@@ -211,7 +225,8 @@ public class PhtProtocol implements EDProtocol {
         this.state   = PHT_RANGE_QUERY;
         this.rqTotal = 0;
         this.rqCount = 0;
-        this.clients.put(nextId, client);
+//        this.clients.put(nextId, client);
+        sClient = client;
 
         rangeQuery(keyMin, keyMax, nextId);
 
@@ -237,8 +252,6 @@ public class PhtProtocol implements EDProtocol {
         } else {
             startKey = key.substring(0, PhtProtocol.D/2);
         }
-
-        System.out.println("::query::");
 
         pml = new PMLookup(key, operation, null, startKey);
         message = new PhtMessage(this.currentLookup, this.node, null, id, pml);
@@ -271,14 +284,13 @@ public class PhtProtocol implements EDProtocol {
         if (this.currentLookup == PhtMessage.LIN_LOOKUP) {
             startLookup = "";
         }
-        System.out.printf("::rquery:: startKey: '%s' <> startLookup: '%s'\n",
-                startKey, startLookup);
+        infoLog(String.format("::rquery:: startKey: '%s' <> startLookup: '%s' " + " " +
+                        " <> on node %d\n",
+                startKey, startLookup, this.node.getID()));
 
         pmrq    = new PMRangeQuery(keyMin, keyMax);
         pml     = new PMLookup(startKey, this.currentRangeQuery, null, startLookup, pmrq);
         message = new PhtMessage(this.currentLookup, this.node, null, id, pml);
-
-        System.out.println("::rquery:: this node id is " + this.node.getID());
 
         dht.send(message, startLookup);
     }
@@ -299,8 +311,8 @@ public class PhtProtocol implements EDProtocol {
         pml = new PMLookup(label, PhtMessage.SPLIT, null, son);
         message = new PhtMessage(PhtMessage.SPLIT, this.node, label, nextId, pml);
 
-        log( String.format("((%d)) sendSplit [initiator: '%s' on node %d][son: '%s']\n",
-                message.getId(), label, this.node.getID(), son) );
+        infoLog(String.format("((%d)) sendSplit [initiator: '%s' on node %d][son: '%s']\n",
+                message.getId(), label, this.node.getID(), son));
 
         dht.send(message, son);
     }
@@ -318,7 +330,7 @@ public class PhtProtocol implements EDProtocol {
         pml = new PMLookup(label, PhtMessage.MERGE, null, son.getKey());
         message = new PhtMessage(PhtMessage.MERGE, this.node, label, nextId, pml);
 
-        log(String.format("((%d)) sendMerge from '%s'(%d) to '%s'(%d)\n",
+        infoLog(String.format("((%d)) sendMerge from '%s'(%d) to '%s'(%d)\n",
                 nextId, label, this.node.getID(), son.getKey(), son.getNode().getID()));
 
         EDSimulator.add(0, message, son.getNode(), phtid);
@@ -348,7 +360,7 @@ public class PhtProtocol implements EDProtocol {
         message = new PhtMessage(type, this.node, label, nextId, pml);
 
         if (father.getNode() == null) {
-            log("@@@@@ father null in sendMerge @@@@@");
+            infoLog("@@@@@ father null in sendMerge @@@@@");
         }
 
         EDSimulator.add(0, message, father.getNode(), phtid);
@@ -389,37 +401,25 @@ public class PhtProtocol implements EDProtocol {
         if (pml.getOperation() == PhtMessage.PAR_QUERY) {
             if ( (node.isLeaf()) || (node.getLabel().equals(pml.getKey())) ) {
                 processParQuery(message, pml);
-                System.out.println("::lin_parquery::");
                 return;
             }
         }
 
         // Continue the lookup is the node is not a leaf
         if (! node.isLeaf()) {
-            log( String.format("((%d)) <noLeaf> processLinLookup :: node %d" +
+            infoLog(String.format("((%d)) <noLeaf> processLinLookup :: node %d" +
                             " :: node's label: '%s' :: key: '%s' :: op: %d\n",
                     message.getId(), this.node.getID(),
-                    node.getLabel(), pml.getKey(), pml.getOperation()) );
+                    node.getLabel(), pml.getKey(), pml.getOperation()));
 
             next = forwardLookup(node, pml.getKey());
             pml.setDestLabel(next.getKey());
             pml.setDest(next.getNode());
-            System.out.printf("::linquery next is '%s' on node %d::\n",
-                    next.getKey(), next.getNode().getID());
             EDSimulator.add(0, message, pml.getDest(), phtid);
             return;
         }
 
-        if (pml.getOperation() > PhtMessage.LIN_LOOKUP) {
-            System.out.printf("::linquery:: type: %d <> op: %d <> label: '%s' <> key: '%s'\n",
-                    message.getType(), pml.getOperation(),
-                    node.getLabel(), pml.getKey());
-        }
-
-        System.out.printf("::linquery '%s' on node %d::\n",
-                pml.getDestLabel(), this.node.getID());
-
-        log(String.format("((%d)) <Leaf> processLinLookup :: node %d" +
+        infoLog(String.format("((%d)) <Leaf> processLinLookup :: node %d" +
                         " :: node's label: '%s' :: key: '%s' :: op: %d\n",
                 message.getId(), this.node.getID(),
                 node.getLabel(), pml.getKey(), pml.getOperation()));
@@ -489,7 +489,7 @@ public class PhtProtocol implements EDProtocol {
         // One more node on the range query
         pmrq.oneMore();
 
-        log(String.format("((%d)) processSeqQuery \n"
+        infoLog(String.format("((%d)) processSeqQuery \n"
                         + "<> keyMin: %s <> keyMax: %s\n",
                 message.getId(),
                 pml.getKey(), pmrq.getKeyMax()));
@@ -500,8 +500,8 @@ public class PhtProtocol implements EDProtocol {
                 pmrq.stop();
             }
         } else {
-            System.out.printf("::processSeqQuery:: end '%s' to '%s'\n",
-                    pmrq.getKeyMin(), pmrq.getKeyMax());
+            infoLog( String.format("::processSeqQuery:: end '%s' to '%s'\n",
+                    pmrq.getKeyMin(), pmrq.getKeyMax()) );
             pmrq.stop();
         }
 
@@ -519,8 +519,6 @@ public class PhtProtocol implements EDProtocol {
         EDSimulator.add(0, message, message.getInitiator(), phtid);
 
         if (pmrq.isEnd()) {
-            System.out.printf("::processSeqQuery:: end '%s' to '%s'\n",
-                    pmrq.getKeyMin(), pmrq.getKeyMax());
             return;
         }
 
@@ -591,7 +589,7 @@ public class PhtProtocol implements EDProtocol {
 
         // Continue the lookup is the node is not a leaf
         if (! node.isLeaf()) {
-            log(String.format("((%d)) <noLeaf> processParQuery :: node %d" +
+            infoLog(String.format("((%d)) <noLeaf> processParQuery :: node %d" +
                             " :: node's label: '%s' :: key: '%s' :: op: %d\n",
                     message.getId(), this.node.getID(),
                     node.getLabel(), pml.getKey(), pml.getOperation()));
@@ -632,8 +630,6 @@ public class PhtProtocol implements EDProtocol {
         // If this leaf is outside the range stop here
         if ( (PhtUtil.inRangeMax(node.getLabel(), pmrq.getKeyMax()))
                 && (PhtUtil.inRangeMin(node.getLabel(), pmrq.getKeyMin())) ) {
-            System.out.println("test :: outside ::");
-
             // First: get everything
             pmrq.addRange(
                     node.getDKeys(),
@@ -699,9 +695,7 @@ public class PhtProtocol implements EDProtocol {
             }
         }
 
-        System.out.println("::insertion::");
-
-        log(String.format("((%d)) processInsertion [initiator: '%s'][type: %d] "
+        infoLog(String.format("((%d)) processInsertion [initiator: '%s'][type: %d] "
                         + "[op: %d][key: '%s']    [%d]\n",
                 message.getId(), message.getInitiator().getID(), message.getType(),
                 pml.getOperation(), pml.getKey(), this.node.getID()));
@@ -715,7 +709,7 @@ public class PhtProtocol implements EDProtocol {
         res = node.insert(pml.getKey(), pml.getLess());
 
         if (message.getInitiator() == null) {
-            log("@@@@@ initiator null in processInsertion @@@@@");
+            infoLog("@@@@@ initiator null in processInsertion @@@@@");
         }
 
         message.setType(PhtMessage.ACK_INSERTION);
@@ -754,7 +748,7 @@ public class PhtProtocol implements EDProtocol {
         node.use();
         node.useDest();
 
-        log(String.format("((%d)) processSplit [initiator: '%s' <> '%s'][type: %d] "
+        infoLog(String.format("((%d)) processSplit [initiator: '%s' <> '%s'][type: %d] "
                         + "[label: '%s']    [%d]\n",
                 message.getId(),
                 message.getInitiator().getID(), message.getInitiatorLabel(),
@@ -772,7 +766,7 @@ public class PhtProtocol implements EDProtocol {
 
 
         if (message.getInitiator() == null) {
-            log("@@@@@ initiator null in processSplit @@@@@");
+            infoLog("@@@@@ initiator null in processSplit @@@@@");
         }
 
         EDSimulator.add(0, message, message.getInitiator(), phtid);
@@ -819,7 +813,7 @@ public class PhtProtocol implements EDProtocol {
             node.setPrevLeaf(info.get(0));
             node.setNextLeaf(info.get(1));
 
-            log(String.format("((%d)) processSplitLeaves [initiator: '%s' <> '%s'][type: %d] "
+            infoLog(String.format("((%d)) processSplitLeaves [initiator: '%s' <> '%s'][type: %d] "
                             + "[label: '%s'][leaves received: %d]    [%d]\n",
                     message.getId(),
                     message.getInitiator().getID(), message.getInitiatorLabel(),
@@ -839,7 +833,7 @@ public class PhtProtocol implements EDProtocol {
 
 
         if (message.getInitiator() == null) {
-            log("@@@@@ initiator null in processSplitLeaves @@@@@");
+            infoLog("@@@@@ initiator null in processSplitLeaves @@@@@");
         }
 
         EDSimulator.add(0, message, message.getInitiator(), phtid);
@@ -884,7 +878,7 @@ public class PhtProtocol implements EDProtocol {
             data = (List<PhtData>) pml.getLess();
             pml.setLess(node.insert(data));
 
-            log(String.format("((%d)) processSplitData [initiator: %d <> '%s'][type: %d] "
+            infoLog(String.format("((%d)) processSplitData [initiator: %d <> '%s'][type: %d] "
                             + "[destLabel: '%s'][keys received: %d]    [%d]\n",
                     message.getId(),
                     message.getInitiator().getID(), message.getInitiatorLabel(),
@@ -902,7 +896,7 @@ public class PhtProtocol implements EDProtocol {
 
 
         if (message.getInitiator() == null) {
-            log("@@@@@ initiator null in processSplitData @@@@@");
+            infoLog("@@@@@ initiator null in processSplitData @@@@@");
         }
 
         this.state = PHT_INIT;
@@ -997,7 +991,7 @@ public class PhtProtocol implements EDProtocol {
                     + "\n" + toString());
         }
 
-        log(String.format("((%d)) processMerge [node: '%s'][initiator: '%s' on %d]\n",
+        infoLog(String.format("((%d)) processMerge [node: '%s'][initiator: '%s' on %d]\n",
                 message.getId(), node.getLabel(),
                 message.getInitiatorLabel(), message.getInitiator().getID()));
 
@@ -1045,7 +1039,7 @@ public class PhtProtocol implements EDProtocol {
             leaf = new NodeInfo(node.getNextLeaf().getKey(), node.getNextLeaf().getNode());
         }
 
-        log(String.format("((%d)) processMergeLeaves [node: '%s'][initiator: '%s' on %d]\n",
+        infoLog(String.format("((%d)) processMergeLeaves [node: '%s'][initiator: '%s' on %d]\n",
                 message.getId(), node.getLabel(),
                 message.getInitiatorLabel(), message.getInitiator().getID()));
 
@@ -1076,7 +1070,7 @@ public class PhtProtocol implements EDProtocol {
 
         kdata = node.getDKeys();
 
-        log(String.format("((%d)) processMergeData [node: '%s'][initiator: '%s' on %d]\n",
+        infoLog(String.format("((%d)) processMergeData [node: '%s'][initiator: '%s' on %d]\n",
                 message.getId(), node.getLabel(),
                 message.getInitiatorLabel(), message.getInitiator().getID()));
 
@@ -1124,7 +1118,7 @@ public class PhtProtocol implements EDProtocol {
                     + "\n" + toString());
         }
 
-        log(String.format("((%d)) processMergeDone [node: '%s'][initiator: '%s' on %d]\n",
+        infoLog(String.format("((%d)) processMergeDone [node: '%s'][initiator: '%s' on %d]\n",
                 message.getId(), node.getLabel(),
                 message.getInitiatorLabel(), message.getInitiator().getID()));
 
@@ -1191,7 +1185,8 @@ public class PhtProtocol implements EDProtocol {
                 sendMerge(father.getLabel(), father.getLson());
                 sendMerge(father.getLabel(), father.getRson());
             } else {
-                MSPClient.release();
+//                this.clients.get(message.getId()).release();
+                sClient.release();
             }
         }
 
@@ -1207,7 +1202,7 @@ public class PhtProtocol implements EDProtocol {
 
     /**
      * Update a PhtNode's previous leaf
-     * @param message PhtMessage with information for the logs
+     * @param message PhtMessage with information for the infoLogs
      * @param pml Has the new previous leaf
      * @throws PhtNodeNotFoundException
      */
@@ -1237,7 +1232,7 @@ public class PhtProtocol implements EDProtocol {
         node.use();
         node.useDest();
 
-        log(String.format("((%d)) [%s] processUpdatePreviousLeaf: Node found !\n",
+        infoLog(String.format("((%d)) [%s] processUpdatePreviousLeaf: Node found !\n",
                 message.getId(),
                 node.getLabel()));
 
@@ -1249,7 +1244,7 @@ public class PhtProtocol implements EDProtocol {
 
     /**
      * Update a PhtNode's next leaf
-     * @param message Just for the log
+     * @param message Just for the infoLog
      * @param pml Contains the next leaf
      * @throws PhtNodeNotFoundException
      */
@@ -1273,7 +1268,7 @@ public class PhtProtocol implements EDProtocol {
         node.use();
         node.useDest();
 
-        log(String.format("((%d)) [%s] processUpdateNextLeaf: Node found !\n",
+        infoLog(String.format("((%d)) [%s] processUpdateNextLeaf: Node found !\n",
                 message.getId(),
                 node.getLabel()));
 
@@ -1302,7 +1297,7 @@ public class PhtProtocol implements EDProtocol {
 
         pml = checkLookup(message, "processAck_LinLookup");
 
-        log(String.format("((%d)) processAck_LinLookup [initiator: '%s'][type: %d] "
+        infoLog(String.format("((%d)) processAck_LinLookup [initiator: '%s'][type: %d] "
                         + "[op: %d][key: '%s']    [%d]\n",
                 message.getId(), message.getInitiator().getID(), message.getType(),
                 pml.getOperation(), pml.getKey(), this.node.getID()));
@@ -1335,9 +1330,11 @@ public class PhtProtocol implements EDProtocol {
                     long id = message.getId();
 
                     this.state = PHT_INIT;
-                    this.clients.get(id).responseValue(id, pml.getKey(), pml.getLess());
+//                    this.clients.get(id).responseValue(id, pml.getKey(), pml.getLess());
+                    sClient.responseValue(id, pml.getKey(), pml.getLess());
 
-                    MSPClient.release();
+//                    this.clients.get(message.getId()).release();
+                    sClient.release();
                 }
                 return;
 
@@ -1358,7 +1355,7 @@ public class PhtProtocol implements EDProtocol {
 
 
         if (pml.getDest() == null) {
-            log("@@@@@ dest null in processAck_LinLookup @@@@@");
+            infoLog("@@@@@ dest null in processAck_LinLookup @@@@@");
         }
 
         EDSimulator.add(0, message, pml.getDest(), phtid);
@@ -1385,13 +1382,13 @@ public class PhtProtocol implements EDProtocol {
         if (pml.getLess() instanceof PMRangeQuery) {
             pmrq = (PMRangeQuery) pml.getLess();
         } else {
-            log(String.format("((%d)) processAck_SeqQuery pml.getLess() instanceof %s",
+            infoLog(String.format("((%d)) processAck_SeqQuery pml.getLess() instanceof %s",
                     message.getId(), pml.getLess().getClass().getName()));
             return;
         }
 
         if (pmrq.isEnd()) {
-            log(String.format("::processAck_SeqQuery:: end '%s' to '%s' count: %d " +
+            infoLog(String.format("::processAck_SeqQuery:: end '%s' to '%s' count: %d " +
                             "total: %d\n",
                     pmrq.getKeyMin(), pmrq.getKeyMax(), this.rqCount, this.rqTotal));
             this.rqTotal = pmrq.getCount();
@@ -1399,14 +1396,16 @@ public class PhtProtocol implements EDProtocol {
 
         this.rqCount++;
         if (this.rqCount == this.rqTotal) {
-            log(String.format("::processAck_SeqQuery:: total: %d OK '%s' to '%s'\n",
+            infoLog(String.format("::processAck_SeqQuery:: total: %d OK '%s' to '%s'\n",
                     this.rqTotal, pmrq.getKeyMin(), pmrq.getKeyMax()));
-            MSPClient.release();
+//            this.clients.get(message.getId()).release();
+            sClient.release();
         }
 
-        this.clients.get(message.getId()).responseList(message.getId(), pmrq.getKdata());
+//        this.clients.get(message.getId()).responseList(message.getId(), pmrq.getKdata());
+        sClient.responseList(message.getId(), pmrq.getKdata());
 
-        log(String.format("((%d)) processAck_SeqQuery <> %d keys\n",
+        infoLog(String.format("((%d)) processAck_SeqQuery <> %d keys\n",
                 message.getId(), pmrq.getCount()));
     }
 
@@ -1462,8 +1461,6 @@ public class PhtProtocol implements EDProtocol {
             if (storedPml.getLess() instanceof Integer) {
                 storedCount = (Integer) storedPml.getLess();
             } else {
-                System.out.printf("\n\ntest::: not an integer: %s\n\n",
-                        storedPml.getLess().getClass().getName());
                 return;
             }
 
@@ -1478,16 +1475,15 @@ public class PhtProtocol implements EDProtocol {
             if ( node.getLabel().equals(pml.getKey()) ) {
                 pml.setLess(storedCount + count);
                 message.setType(PhtMessage.ACK_PAR_QUERY_CLIENT_F);
-                System.out.printf("\n\nstarting leaf('%s'): count: %d\n\n",
+                infoLog( String.format("\n\nstarting leaf('%s'): count: %d\n\n",
                         node.getLabel(),
-                        storedCount + count);
+                        storedCount + count) );
                 EDSimulator.add(0, message, message.getInitiator(), phtid);
             } else {
                 // ACK to the father
                 pml.setLess(storedCount + count);
                 pml.setDest(next.getNode());
                 pml.setDestLabel(next.getKey());
-                System.out.printf("\n\nACK father: count: %d\n\n", storedCount + count);
                 EDSimulator.add(0, message, node.getFather().getNode(), phtid);
             }
         }
@@ -1506,12 +1502,13 @@ public class PhtProtocol implements EDProtocol {
         if (pml.getLess() instanceof PMRangeQuery) {
             pmrq = (PMRangeQuery) pml.getLess();
         } else {
-            log(String.format("((%d)) processAck_ParQuery pml.getLess() instanceof %s",
+            infoLog(String.format("((%d)) processAck_ParQuery pml.getLess() instanceof %s",
                     message.getId(), pml.getLess().getClass().getName()));
             return;
         }
 
-        this.clients.get(message.getId()).responseList(message.getId(), pmrq.getKdata());
+//        this.clients.get(message.getId()).responseList(message.getId(), pmrq.getKdata());
+        sClient.responseList(message.getId(), pmrq.getKdata());
 
         this.rqCount++;
         System.out.printf("::processAck_ParQueryClient:: [%d] count: %d (total: %d) <> '%s' to " +
@@ -1522,10 +1519,11 @@ public class PhtProtocol implements EDProtocol {
         if (this.rqCount == this.rqTotal) {
             System.out.printf("::processAck_ParQueryClient:: total: %d OK '%s' to '%s'\n",
                     this.rqTotal, pmrq.getKeyMin(), pmrq.getKeyMax());
-            MSPClient.release();
+//            this.clients.get(message.getId()).release();
+            sClient.release();
         }
 
-        log(String.format("((%d)) processAck_ParQueryClient <> %d keys\n",
+        infoLog(String.format("((%d)) processAck_ParQueryClient <> %d keys\n",
                 message.getId(), pmrq.getCount()));
     }
 
@@ -1536,7 +1534,7 @@ public class PhtProtocol implements EDProtocol {
      * should receive from leaves.
      * @param pml Contains the number of leaves in this parallel query
      */
-    private void processAck_ParQueryClientF(PMLookup pml) {
+    private void processAck_ParQueryClientF(long id, PMLookup pml) {
 
         if (pml.getLess() instanceof Integer) {
             this.rqTotal = (Integer) pml.getLess();
@@ -1545,7 +1543,8 @@ public class PhtProtocol implements EDProtocol {
         if (this.rqTotal == this.rqCount) {
             System.out.printf("::processAck_ParQueryClientF:: [%d] total: %d OK\n",
                     this.node.getID(), this.rqTotal);
-            MSPClient.release();
+//            this.clients.get(id).release();
+            sClient.release();
         }
 
         System.out.printf("::processAck_ParQueryClientF:: [%d] total: %d count: %d\n",
@@ -1565,7 +1564,7 @@ public class PhtProtocol implements EDProtocol {
         long id = message.getId();
         int res;
 
-        log(String.format("((%d)) processAck_Insertion [initiator: '%s'][type: %d] "
+        infoLog(String.format("((%d)) processAck_Insertion [initiator: '%s'][type: %d] "
                         + "[ok: '%s']    [%d]\n",
                 message.getId(), message.getInitiator().getID(), message.getType(),
                 message.getMore().toString(), this.node.getID()));
@@ -1577,10 +1576,12 @@ public class PhtProtocol implements EDProtocol {
         }
 
         this.state = PHT_INIT;
-        this.clients.get(id).responseOk(id, res);
+//        this.clients.get(id).responseOk(id, res);
+        sClient.responseOk(id, res);
 
         if (res == 0) {
-            MSPClient.release();
+//            this.clients.get(message.getId()).release();
+            sClient.release();
         }
     }
 
@@ -1603,7 +1604,8 @@ public class PhtProtocol implements EDProtocol {
         }
 
         this.state = PHT_INIT;
-        this.clients.get(id).responseOk(id, res);
+//        this.clients.get(id).responseOk(id, res);
+        sClient.responseOk(id, res);
     }
 
 
@@ -1634,7 +1636,7 @@ public class PhtProtocol implements EDProtocol {
             ok = (Boolean) pml.getLess();
         }
 
-        log(String.format("((%d)) processAck_Split [initiator: '%s' <> '%s'][type: %d] "
+        infoLog(String.format("((%d)) processAck_Split [initiator: '%s' <> '%s'][type: %d] "
                         + "[label: '%s'][ok: %s]    [%d]\n",
                 message.getId(),
                 message.getInitiator().getID(), message.getInitiatorLabel(),
@@ -1704,7 +1706,7 @@ public class PhtProtocol implements EDProtocol {
             PMLookup storedPml;
 
             if (pml.getDest() == null) {
-                log("@@@@@ dest null in processAck_Split first @@@@@");
+                infoLog("@@@@@ dest null in processAck_Split first @@@@@");
             }
 
             // Restore the message from the first ACK
@@ -1712,7 +1714,7 @@ public class PhtProtocol implements EDProtocol {
             storedPml     = (PMLookup) storedMessage.getMore();
 
             if (pml.getDest() == null) {
-                log("@@@@@ dest null in processAck_Split second @@@@@");
+                infoLog("@@@@@ dest null in processAck_Split second @@@@@");
             }
 
             /*
@@ -1756,7 +1758,7 @@ public class PhtProtocol implements EDProtocol {
             ok = (Boolean) pml.getLess();
         }
 
-        log(String.format("((%d)) processAck_SplitLeaves [initiator: '%s' <> '%s'][type: %d] "
+        infoLog(String.format("((%d)) processAck_SplitLeaves [initiator: '%s' <> '%s'][type: %d] "
                         + "[label: '%s'][ok: %s]    [%d]\n",
                 message.getId(),
                 message.getInitiator().getID(), message.getInitiatorLabel(),
@@ -1818,7 +1820,7 @@ public class PhtProtocol implements EDProtocol {
 
 
         if (pml.getDest() == null) {
-            log("@@@@@ dest null in processAck_SplitLeaves @@@@@");
+            infoLog("@@@@@ dest null in processAck_SplitLeaves @@@@@");
         }
 
         if (node.state.twoAckSplitLeaves()) {
@@ -1860,7 +1862,7 @@ public class PhtProtocol implements EDProtocol {
             ok = (Boolean) pml.getLess();
         }
 
-        log(String.format("((%d)) processAck_SplitData [initiator: '%s' <> '%s'][type: %d] "
+        infoLog(String.format("((%d)) processAck_SplitData [initiator: '%s' <> '%s'][type: %d] "
                         + "[label: '%s'][ok: %s]    [%d]\n",
                 message.getId(),
                 message.getInitiator().getID(), message.getInitiatorLabel(),
@@ -1944,9 +1946,10 @@ public class PhtProtocol implements EDProtocol {
 
         if (node.state.isStable()) {
             node.internal();
-       }
+        }
 
-        MSPClient.release();
+//        this.clients.get(message.getId()).release();
+        sClient.release();
     }
 
     /* :::::::::: MERGE ::::::::: */
@@ -2031,7 +2034,7 @@ public class PhtProtocol implements EDProtocol {
 //            }
 //        }
 
-        log(String.format("((%d)) processAck_Merge [node: '%s'][initiator: '%s' on %d] \n",
+        infoLog(String.format("((%d)) processAck_Merge [node: '%s'][initiator: '%s' on %d] \n",
                 message.getId(), node.getLabel(),
                 message.getInitiatorLabel(), message.getInitiator().getID()));
 
@@ -2092,7 +2095,7 @@ public class PhtProtocol implements EDProtocol {
             node.setNextLeaf(leaf);
         }
 
-        log(String.format("((%d)) processAck_MergeLeaves [node: '%s'][initiator: '%s' on %d] "
+        infoLog(String.format("((%d)) processAck_MergeLeaves [node: '%s'][initiator: '%s' on %d] "
                         + "[node's state: %s]\n",
                 message.getId(), node.getLabel(),
                 message.getInitiatorLabel(), message.getInitiator().getID(),
@@ -2163,7 +2166,7 @@ public class PhtProtocol implements EDProtocol {
                     + message.getInitiatorLabel());
         }
 
-        log(String.format("((%d)) processAck_MergeDone [node: '%s'][initiator: '%s' on %d] "
+        infoLog(String.format("((%d)) processAck_MergeDone [node: '%s'][initiator: '%s' on %d] "
                         + "[node's state: %s]\n",
                 message.getId(), node.getLabel(),
                 message.getInitiatorLabel(), message.getInitiator().getID(),
@@ -2199,7 +2202,8 @@ public class PhtProtocol implements EDProtocol {
             );
         }
 
-        MSPClient.release();
+//        this.clients.get(message.getId()).release();
+        sClient.release();
     }
 
     /* ________________________                       _______________________ */
@@ -2432,8 +2436,8 @@ public class PhtProtocol implements EDProtocol {
         try {
             switch (message.getType()) {
                 case PhtMessage.INIT:
-                    log("PHT Yeeaah !");
-                    log(String.format("PHT init message sent by %d [%d]\n",
+                    infoLog("PHT Yeeaah !");
+                    infoLog(String.format("PHT init message sent by %d [%d]\n",
                             message.getInitiator().getID(), this.node.getID()));
                     initiate();
                     break;
@@ -2509,11 +2513,25 @@ public class PhtProtocol implements EDProtocol {
 
             }
         } catch (NoPMLookupException npmle) {
-            npmle.printStackTrace();
+            if (this.eHandler != null) {
+                this.eHandler.handle(npmle);
+            } else {
+                npmle.printStackTrace();
+            }
+
         } catch (PhtNodeNotFoundException pnfe) {
-            pnfe.printStackTrace();
+            if (this.eHandler != null) {
+                this.eHandler.handle(pnfe);
+            } else {
+                pnfe.printStackTrace();
+            }
         } catch (CantSplitException cse) {
-            cse.printStackTrace();
+            if (this.eHandler != null) {
+                this.eHandler.handle(cse);
+            } else {
+                cse.printStackTrace();
+            }
+
         } catch (NoDataSplitData ndsde) {
             ndsde.printStackTrace();
         }
@@ -2598,7 +2616,7 @@ public class PhtProtocol implements EDProtocol {
                     break;
 
                 case PhtMessage.ACK_PAR_QUERY_CLIENT_F:
-                    processAck_ParQueryClientF(pml);
+                    processAck_ParQueryClientF(message.getId(), pml);
                     break;
 
                 default:
@@ -2718,6 +2736,15 @@ public class PhtProtocol implements EDProtocol {
     }
 
 
+    /**
+     * Do something when an exception is catched (the default policy is to
+     * print informations and continue)
+     * @param eh New exception handler
+     */
+    public void setEHandler(ExceptionHandler eh) {
+        this.eHandler = eh;
+    }
+
     /*_________________________                        ______________________ */
     /*_________________________ Initiation for PeerSim ______________________ */
 
@@ -2733,7 +2760,7 @@ public class PhtProtocol implements EDProtocol {
 
         PhtProtocol.init = true;
         this.nodes.put("", new PhtNode("", this));
-        log("PHT initiate() on node " + this.dht.getNodeId());
+        infoLog("PHT initiate() on node " + this.dht.getNodeId());
 
         System.out.println("PHT initiate");
 
@@ -2794,27 +2821,25 @@ public class PhtProtocol implements EDProtocol {
         }
     }
 
-    /**
-     * Log every information of every requests
-     * @param str String to write into the log file
-     */
-    public static void log(String str) {
+    public void infoLog(String info) {
         if (! logOk) {
             return;
         }
 
-        logBuf.append(str);
-        logCount++;
+        try {
+            logWriter.write("[INFO] " + info);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-        if (logCount < 10) {
+    private void errorLog(String error) {
+        if (! logOk) {
             return;
-        } else {
-            logCount = 0;
         }
 
         try {
-            logFile.write(logBuf.toString());
-            logBuf = new StringBuffer(10);
+            logWriter.write("[ERROR] " + error);
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -1,10 +1,13 @@
-package peersim.pht.dht;
+package peersim.pht.examples.mspastry;
 
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
 import peersim.pht.*;
+import peersim.pht.Client;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
@@ -17,15 +20,17 @@ import java.util.List;
 public class MSPClient implements Control, Client {
     private static final int BOOTSTRAP = 0;
 
-    private static boolean exe = false;
+    private boolean exe = false;
 
-    private static int next;
-    private static LinkedList<PhtData> kdata;
-    private static List<String> inserted;
-    private static List<String> removed;
+    private int next;
+    private LinkedList<PhtData> kdata;
+    private List<String> inserted;
+    private List<String> removed;
     private final PhtProtocol pht;
 
-    private static int nextOp = 0;
+    private BufferedWriter logWriter;
+
+    private int nextOp = 0;
 
     public MSPClient(String prefix) {
         int phtid = Configuration.getPid(prefix + ".phtid");
@@ -46,7 +51,11 @@ public class MSPClient implements Control, Client {
             kdata.add( new PhtData( keys.get(i), Integer.parseInt(keys.get(i), 2)) );
         }
 
-        System.out.printf("[MSPClient] kdata size: %d\n", kdata.size());
+        try {
+            logWriter = new BufferedWriter( new FileWriter("mspclient.log") );
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -67,13 +76,16 @@ public class MSPClient implements Control, Client {
             }
 
             data = kdata.get(next);
-            System.out.printf("[MSPClient] switch: %d\n", nextOp);
             switch (nextOp) {
                 case 0:
-                    System.out.printf("|| MSPClient || key: '%s'\n", data.getKey());
                     if ( this.pht.insertion( data.getKey(), data.getData(), this) >= 0) {
                         lock();
-                        System.out.printf("[MSPClient] insertion\n");
+                        try {
+                            this.logWriter.write( String.format("[MSPClient] insertion: %s\n",
+                                    kdata.get(next).getKey()) );
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                         inserted.add(kdata.get(next).getKey());
                         next++;
                     }
@@ -82,7 +94,13 @@ public class MSPClient implements Control, Client {
                 case 1:
                     if (this.pht.query(data.getKey(), this) >= 0) {
                         lock();
-                        System.out.printf("[MSPClient] query\n");
+                        try {
+                            this.logWriter.write( String.format(
+                                    "[MSPClient] query %s\n",
+                                    data.getKey()) );
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                         next++;
                     }
                     break;
@@ -102,15 +120,19 @@ public class MSPClient implements Control, Client {
                             kdata.get(kdata.size()-1).getKey(),
                             this) >= 0) {
                         lock();
-                        System.out.printf("[MSPClient] rangeQuery '%s' to '%s'\n",
-                                kdata.get(next).getKey(),
-                                kdata.get(kdata.size()-1).getKey());
+                        try {
+                            this.logWriter.write(String.format(
+                                    "[MSPClient] rangeQuery '%s' to '%s'\n",
+                                    kdata.get(next).getKey(),
+                                    kdata.get(kdata.size() - 1).getKey()));
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                         next += kdata.size() / 4;
                     }
                     break;
 
                 default:
-                    System.out.printf("[MSPClient] case3\n");
                     try {
                         PhtUtil.phtStats();
                     } catch (IOException e) {
@@ -123,11 +145,11 @@ public class MSPClient implements Control, Client {
         return false;
     }
 
-    public static void lock() {
+    public void lock() {
         exe = false;
     }
 
-    public static void release() {
+    public void release() {
         exe = true;
     }
 
@@ -146,9 +168,7 @@ public class MSPClient implements Control, Client {
                     + data.getClass().getName());
         }
 
-        if (res == PhtUtil.keyToData(key)) {
-            System.out.println("::MSPClient:: responseValue correct !");
-        } else {
+        if (res != PhtUtil.keyToData(key)) {
             System.out.printf("::MSPClient:: responseValue error: %d != %d\n",
                     res, PhtUtil.keyToData(key));
         }
@@ -156,11 +176,6 @@ public class MSPClient implements Control, Client {
 
     @Override
     public void responseList(long requestId, List<PhtData> resp) {
-        System.out.printf("::responseList received :\n");
-        for (PhtData data: resp) {
-            System.out.printf("::responseList:: '%s' : %s\n",
-                    data.getKey(), data.getData().toString());
-        }
     }
 
 }

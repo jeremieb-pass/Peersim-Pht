@@ -87,7 +87,7 @@ public class PhtNode {
     public int insert (String key, Object data) {
         int res;
 
-        PhtProtocol.log(String.format("\tPHT NODE (('%s')) insert <> key: '%s' , data: %s\n",
+        this.protocol.infoLog(String.format("\tPHT NODE (('%s')) insert <> key: '%s' , data: %s\n",
                 this.label, key, data));
 
         try {

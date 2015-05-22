@@ -377,7 +377,6 @@ public class PhtUtil {
                         assert node.getRson().getNode() == null;
                     }
 
-                    System.out.println("checkTrie:: key: " + key);
                     cpt++;
                 }
 
