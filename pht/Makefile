@@ -18,7 +18,13 @@ all: compile run
 
 doc:
 	mkdir -p doc
-	javadoc -sourcepath src -classpath $(LIB_JARS) -d doc peersim.pht
+	javadoc -sourcepath src -classpath $(LIB_JARS) -d doc -subpackages peersim.pht
+	#javadoc -sourcepath src -classpath $(LIB_JARS) -d doc peersim.pht
+	#javadoc -sourcepath src -classpath $(LIB_JARS) -d doc/dht peersim.pht.dht
+	#javadoc -sourcepath src -classpath $(LIB_JARS) -d doc/examples peersim.pht.examples.mspastry
+	#javadoc -sourcepath src -classpath $(LIB_JARS) -d doc/exceptions peersim.pht.exceptions
+	#javadoc -sourcepath src -classpath $(LIB_JARS) -d doc/messages peersim.pht.messages
+	#javadoc -sourcepath src -classpath $(LIB_JARS) -d doc/state peersim.pht.state
 
 
 clean: 

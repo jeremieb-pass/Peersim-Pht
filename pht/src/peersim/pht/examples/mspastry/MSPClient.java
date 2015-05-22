@@ -20,7 +20,8 @@ import java.util.List;
 public class MSPClient implements Control, Client {
     private static final int BOOTSTRAP = 0;
 
-    private boolean exe = false;
+    private boolean exe  = false;
+    private boolean stop = false;
 
     private int next;
     private LinkedList<PhtData> kdata;
@@ -33,10 +34,12 @@ public class MSPClient implements Control, Client {
     private int nextOp = 0;
 
     public MSPClient(String prefix) {
-        int phtid = Configuration.getPid(prefix + ".phtid");
-        int len   = Configuration.getInt(prefix + ".len");
-        int maxKeys = Configuration.getInt(prefix + ".max");
-        List<String> keys = PhtUtil.genKeys(len);
+        boolean shuffle = Configuration.getBoolean(prefix + ".shuffle");
+        int phtid       = Configuration.getPid(prefix + ".phtid");
+        int len         = Configuration.getInt(prefix + ".len");
+        int maxKeys     = Configuration.getInt(prefix + ".max");
+
+        List<String> keys = PhtUtil.genKeys(len, shuffle);
 
         System.out.println("MSPClient");
 
@@ -64,82 +67,86 @@ public class MSPClient implements Control, Client {
      */
     @Override
     public boolean execute() {
-        if (exe) {
-            PhtData data;
+        if (! exe) {
+            return false;
+        } else if (stop) {
+            return true;
+        }
 
-            if (next >= kdata.size()) {
-                next = 0;
-                nextOp++;
-                System.out.printf("[MSPClient] nextOp: %d\n", nextOp);
-                PhtUtil.checkTrie(kdata, inserted, removed);
-                PhtUtil.allKeys(inserted);
-            }
+        PhtData data;
 
-            data = kdata.get(next);
-            switch (nextOp) {
-                case 0:
-                    if ( this.pht.insertion( data.getKey(), data.getData(), this) >= 0) {
-                        lock();
-                        try {
-                            this.logWriter.write( String.format("[MSPClient] insertion: %s\n",
-                                    kdata.get(next).getKey()) );
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        inserted.add(kdata.get(next).getKey());
-                        next++;
-                    }
-                    break;
+        if (next >= kdata.size()) {
+            next = 0;
+            nextOp++;
+            System.out.printf("[MSPClient] nextOp: %d\n", nextOp);
+            PhtUtil.checkTrie(kdata, inserted, removed);
+            PhtUtil.allKeys(inserted);
+        }
 
-                case 1:
-                    if (this.pht.query(data.getKey(), this) >= 0) {
-                        lock();
-                        try {
-                            this.logWriter.write( String.format(
-                                    "[MSPClient] query %s\n",
-                                    data.getKey()) );
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        next++;
-                    }
-                    break;
-
-                case 2:
-                    if (this.pht.suppression(data.getKey(), this) >= 0) {
-                        lock();
-                        inserted.remove(kdata.get(next).getKey());
-                        removed.add(kdata.get(next).getKey());
-                        next += kdata.size()/PhtProtocol.B;
-                    }
-                    break;
-
-                case 3:
-                    if (this.pht.rangeQuery(
-                            kdata.get(next).getKey(),
-                            kdata.get(kdata.size()-1).getKey(),
-                            this) >= 0) {
-                        lock();
-                        try {
-                            this.logWriter.write(String.format(
-                                    "[MSPClient] rangeQuery '%s' to '%s'\n",
-                                    kdata.get(next).getKey(),
-                                    kdata.get(kdata.size() - 1).getKey()));
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        next += kdata.size() / 4;
-                    }
-                    break;
-
-                default:
+        data = kdata.get(next);
+        switch (nextOp) {
+            case 0:
+                if ( this.pht.insertion( data.getKey(), data.getData(), this) >= 0) {
+                    lock();
                     try {
-                        PhtUtil.phtStats();
+                        this.logWriter.write( String.format("[MSPClient] insertion: %s\n",
+                                kdata.get(next).getKey()) );
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
-                    return true;
-            }
+                    inserted.add(kdata.get(next).getKey());
+                    next++;
+                }
+                break;
+
+            case 1:
+                if (this.pht.query(data.getKey(), this) >= 0) {
+                    lock();
+                    try {
+                        this.logWriter.write( String.format(
+                                "[MSPClient] query %s\n",
+                                data.getKey()) );
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    next++;
+                }
+                break;
+
+            case 2:
+                if (this.pht.suppression(data.getKey(), this) >= 0) {
+                    lock();
+                    inserted.remove(kdata.get(next).getKey());
+                    removed.add(kdata.get(next).getKey());
+                    next += kdata.size()/PhtProtocol.B;
+                }
+                break;
+
+            case 3:
+                if (this.pht.rangeQuery(
+                        kdata.get(next).getKey(),
+                        kdata.get(kdata.size()-1).getKey(),
+                        this) >= 0) {
+                    lock();
+                    try {
+                        this.logWriter.write(String.format(
+                                "[MSPClient] rangeQuery '%s' to '%s'\n",
+                                kdata.get(next).getKey(),
+                                kdata.get(kdata.size() - 1).getKey()));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    next += kdata.size() / 4;
+                }
+                break;
+
+            default:
+                try {
+                    PhtUtil.phtStats();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return true;
         }
 
         return false;
@@ -151,6 +158,11 @@ public class MSPClient implements Control, Client {
 
     public void release() {
         exe = true;
+    }
+
+    @Override
+    public void stop() {
+        this.stop = true;
     }
 
     @Override

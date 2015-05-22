@@ -1,7 +1,7 @@
 package peersim.pht;
 
 /**
- * Basic PhtData contains a String and an Object.
+ * <p>Basic PhtData contains a String and an Object.</p>
  */
 public class PhtData {
     private final String key;

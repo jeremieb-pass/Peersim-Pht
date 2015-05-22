@@ -12,10 +12,14 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
+ * <p>
  * Static methods to generate Objects or check properties.
+ * </p>
  *
+ * <p>
  * The goal of this class is to provide some useful methods to other class
  * of the peersim.pht.* packages from generating a list of keys to statistics.
+ * </p>
  */
 public class PhtUtil {
 
@@ -63,6 +67,12 @@ public class PhtUtil {
     }
 
 
+    /**
+     * Check if s1 is a key/label inferior to s2 (max of the range query)
+     * @param s1 label to compare
+     * @param s2 max range
+     * @return true if s1 <= s2
+     */
     public static boolean inRangeMax (String s1, String s2) {
         int max;
 
@@ -78,6 +88,12 @@ public class PhtUtil {
         return true;
     }
 
+    /**
+     * Check if s1 is a key/label superior to s2 (min of the range query)
+     * @param s1 label to compare
+     * @param s2 max range
+     * @return true if s1 >= s2
+     */
     public static boolean inRangeMin (String s1, String s2) {
         int max;
 
@@ -91,52 +107,6 @@ public class PhtUtil {
         }
 
         return true;
-    }
-
-    /**
-     * (Method from MSPastryProtocol.java that we really needed, we just
-     * modified 'mspatryid' to 'id' - which is a new parameter)
-     *
-     * given one nodeId, it search through the network its node reference,
-     * by performing binary search (we concern about the ordering of the
-     * network).
-     * @param searchNodeId BigInteger
-     * @return Node
-     */
-    public static Node nodeIdtoNode(BigInteger searchNodeId, int id) {
-        if (searchNodeId==null) return null;
-
-        int inf = 0;
-        int sup = Network.size() - 1;
-        int m;
-
-        while (inf <= sup) {
-            m = (inf + sup) / 2;
-
-            BigInteger mId = ((MSPastryProtocol) Network.get(m).getProtocol(id)).nodeId;
-
-            if (mId.equals(searchNodeId))
-                return Network.get(m);
-
-            if (mId.compareTo(searchNodeId) < 0)
-                inf = m + 1;
-            else
-                sup = m - 1;
-        }
-
-        /**
-         * La ricerca binaria � veloce ed efficiente, ma qualche volta pu� capitare che l'array dei
-         * nodi di Network non sia ordinato, quindi si applica ora la ricerca sequenziale.
-         * Se nemmeno la ricerca sequenziale trova il nodo cercato, viene ritornato null
-         */
-        BigInteger mId;
-        for (int i= Network.size()-1; i >= 0 ; i--) {
-            mId = ((MSPastryProtocol) Network.get(i).getProtocol(id)).nodeId;
-            if  (mId.equals(searchNodeId))
-                return Network.get(i);
-        }
-
-        return null;
     }
 
     public static byte[] hashMe(String str) {
@@ -155,7 +125,7 @@ public class PhtUtil {
      * @param len Number of bits of each String
      * @return the generated ArrayList
      */
-    public static ArrayList<String> genKeys (int len) {
+    public static ArrayList<String> genKeys (int len, boolean shuffle) {
         int max = (int) Math.pow(2, len);
         ArrayList<String> res;
 
@@ -172,7 +142,9 @@ public class PhtUtil {
             res.add(sb.toString());
         }
 
-//        Collections.shuffle(res, new Random(PhtProtocol.D));
+        if (shuffle) {
+            Collections.shuffle(res, new Random(PhtProtocol.D));
+        }
 
         return res;
     }

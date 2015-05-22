@@ -7,13 +7,17 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Represents a Pht Node with;
- *   a) label
- *   b) right and left son (if any)
- *   c) father
- *   d) data: <key, value>
- *   e) leaf (is the node an internal node or a leaf ?)
- *   f) nextLeaf (null if the node is an internal node
+ * <p>Represents a Pht Node with;</p>
+ * <ol>
+ *   <li>label</li>
+ *   <li>right and left son (if any)</li>
+ *   <li>father</li>
+ *   <li>data: (key, value)</li>
+ *   <li>number of keys</li>
+ *   <li>leaf (is the node an internal node or a leaf ?)</li>
+ *   <li>next leaf </li>
+ *   <li>previous leaf </li>
+ * </ol>
  */
 
 public class PhtNode {
@@ -227,7 +231,7 @@ public class PhtNode {
     private void split() {
         this.leaf = false;
         if (! this.state.startSplit() ) {
-            this.protocol.interrupt();
+            this.protocol.stop();
         }
 
         this.protocol.sendSplit(this.label, this.lson.getKey());

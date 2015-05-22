@@ -1,4 +1,5 @@
 # Peersim-pht
+
 Prefix Hash Tree Implementation for PeerSim as described in https://www.eecs.berkeley.edu/~sylvia/papers/pht.pdf
 
 ## Pht Operations 
@@ -53,11 +54,14 @@ You will find five different parameters for the PhtProtocol in the configuration
 
 ## Project status
 
-### Tests
+Every operation is implemented except for the binary lookup (it will be implemented very quickly 
+!). For now, it is only possible to start a new operation when the previous is completely finished. 
+For example: an insertion that triggered a split is finished when the split is finished, not when 
+the key is inserted.
 
-As for now, tests are run during the simulation. These tests uses Java assertions.
+The next step is to set a thinner granularity and allow operations to start sooner.
 
-### Statistics
+## Statistics
  
 At the end of any simulation, the `phtStats()` method is launched. It provides information 
 about:

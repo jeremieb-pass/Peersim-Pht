@@ -3,8 +3,10 @@ package peersim.pht;
 import peersim.core.Node;
 
 /**
+ * <p>
  * This goal of this class is just to have an easy access to information a
  * PhtNode maintains on other PhtNodes: there key and and there Node (peersim).
+ * </p>
  */
 public class NodeInfo {
     private final String key;

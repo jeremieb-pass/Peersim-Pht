@@ -17,12 +17,10 @@ import java.math.BigInteger;
  */
 public class MSPastry implements DhtInterface, EDProtocol {
     private final String prefix;
-    private final int mspId;
     private MSPastryProtocol msp;
 
    public MSPastry (String prefix) {
-       this.prefix     = prefix;
-       this.mspId      = Configuration.getPid(prefix + ".mspid");
+       this.prefix = prefix;
    }
 
     /**
@@ -38,7 +36,6 @@ public class MSPastry implements DhtInterface, EDProtocol {
 
         code = PhtUtil.hashMe(dest);
         recipient = new BigInteger(code);
-//        peersim.pht.examples.mspastry.MSPClient.lock();
         System.out.printf("\n[[%d]] PHT MSPastry::send %s\n\n", this.msp.nodeId, recipient);
 
         this.msp.send( recipient, message);
@@ -50,11 +47,6 @@ public class MSPastry implements DhtInterface, EDProtocol {
     }
 
     @Override
-    public Node getNode() {
-        return PhtUtil.nodeIdtoNode(this.msp.nodeId, this.mspId);
-    }
-
-    @Override
     public Object clone() {
         return new MSPastry(prefix);
     }
@@ -63,6 +55,16 @@ public class MSPastry implements DhtInterface, EDProtocol {
         this.msp = msp;
     }
 
+    /**
+     * Empty method.
+     *
+     * This method is never called. Having this method makes it possible to
+     * pass this class in the configuration file since for PeerSim it
+     * is a Protocol.
+     * @param node not used
+     * @param pid not used
+     * @param event not used
+     */
     @Override
     public void processEvent(Node node, int pid, Object event) {
     }
