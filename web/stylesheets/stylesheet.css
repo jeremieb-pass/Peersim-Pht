@@ -58,6 +58,14 @@ a {
     padding-right: 20px;
 }
 
+.code {
+    padding-right: 1ch;
+    padding-left: 1ch;
+    font-family: 'PT Sans Narrow', "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #0b8793;
+    background-color: #dce6f0;
+}
+
 @media screen and (min-width: 64em) {
   .btn {
     padding: 0.1rem 1rem; } }

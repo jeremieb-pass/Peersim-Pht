@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="UTF-8">
+    <title>Peersim-Pht by nongbottom</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/normalize.css" media="screen">
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="../stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="../stylesheets/github-light.css" media="screen">
+
+    <link href='http://fonts.googleapis.com/css?family=PT+Sans+Narrow' rel='stylesheet' type='text/css'>
+</head>
+<body>
+<section class="page-header">
+    <h1 class="project-name">
+        Peersim-Pht
+        <!--<h2 class="project-tagline">Prefix Hash Tree Implementation for PeerSim</h2>-->
+        <a href="https://github.com/nongbottom/Peersim-pht">
+            <!--View on GitHub-->
+            <img src="../GitHub-Logo2.png"
+                 alt="Github logo"
+                 style="height:42px;width:42px">
+        </a>
+    </h1>
+    <a href="../../index.html" class="btn">Home</a>
+    <a href="../fr/rapport.html" class="btn">Rapport</a>
+    <a href="documentation.html" class="btn">Documentation</a>
+
+    <br />
+    <a href="pht_doc.html" class="rapport">Pht</a>
+    <a href="quick_overview.html" class="rapport rapport-current">Quick overview</a>
+    <a href="how_works.html" class="rapport">How it works</a>
+    <a href="choices.html" class="rapport">Choices</a>
+</section>
+
+<section class="main-content">
+
+    <div class="resume">
+    </div>
+
+    <h3>Pht Operations</h3>
+    <ol>
+        <li>Linear lookup
+            <p>a top-down traversal of the prefix tree (trie) which returns the the unique leaf
+                node whose label is a prefix of the given key.</p>
+        </li>
+
+        <li>Binary lookup
+            <p>Try different prefix lengths until the required leaf is reached.</p>
+        </li>
+
+        <li>Insertion of a key with related split operation.</li>
+        <li>Deletion of a key with the related merge operation.</li>
+        <li>Sequential range query: return all keys in a range using the links between the
+            leaves.</li>
+        <li>Parallel range query: return all keys in a range starting from the smallest common
+            prefix node of the trie.</li>
+    </ol>
+
+    <h3>PeerSim integration</h3>
+
+    <p>This Pht implementation can be used with any Distributed hash table as long as an
+        interface is provided to enable communication between the concrete implementation of the
+        Dht and Pht.</p>
+
+    <h3>Dht interface</h3>
+
+    <p>The peersim.pht.DhtInterface interface contains the three methods needed for an integration
+        with a Dht: </p>
+
+    <ol>
+        <li><span class="code">void send(PhtMessage message, String dest)</span> Send a message to another node of the
+            trieusing the Dht.</li>
+        <li><span class="code">Object getNodeId()</span> Id of the current Node (PeerSim node: a physical machine).
+            This id is set by the Dht, not PeerSim. This method is used for debug and logs rather than
+            for real operations.</li>
+        <li><span class="code">Node getNode()</span> Current node (PeerSim node). This method is needed for the
+            beginning of the simulation. This information will be used to enable direct communications between
+            PeerSim nodes, thus avoiding extra Dht routing.</li>
+    </ol>
+
+    <h3>Interface with MSPastry</h3>
+
+    <p>PeerSim has additional packages, one of them being the MSPastry protocol.
+        We provide some classes in the peersim.dht package to run simulations with this Dht.</p>
+
+    <h3>PeerSim configuration file</h3>
+
+    <p>You will find five different parameters for the PhtProtocol in the configuration file:</p>
+
+    <ol>
+        <li>Key size (bits).</li>
+        <li>Maximum amount of keys a leaf can have.</li>
+        <li>Dht interface.</li>
+        <li>Logs enabled. Possible values: "on" or anything else to disable this.</li>
+        <li>Type of range query for the simulation ("seq" for sequential, everything else for
+            parallel).</li>
+    </ol>
+
+    <h3>Project status</h3>
+
+    <p>
+        Every operation works. This first version has some restrictions though:
+        <ol>
+            <li>
+                An operation cannot start before the previous is not completely finished (if a split is triggered, for
+                example, the operation is finished when the split is done)
+            </li>
+            <li>
+                We work with a static network.
+            </li>
+        </ol>
+    </p>
+    <p>
+        Note that the second point depends on the underlying Dht: data must be replicated to work with a dynamic
+        network. This means that if the Dht implementation does not provide replication, we can not build, test, run a
+        simulation in a dynamic context. The three Dht on Peersim's website do not provide replication, hence we must
+        first get it on the Dht level.
+    </p>
+
+    <h3>Tests</h3>
+
+    <p>
+        Tests are provided to verify the properties of the Pht:
+        <ol>
+            <li>A leaf is a prefix of every of its keys.</li>
+            <li>Links between leaves must be valid.</li>
+            <li>An  internal node has no keys.</li>
+            <li>An internal node must know the number of keys of it sub-tree.</li>
+            <li>Every key inserted (and not deleted) is in the Pht.</li>
+        </ol>
+    </p>
+    <p>The tests uses Java assertions, to enable them, one must use the -ea option.</p>
+
+    <h3>Statistics</h3>
+
+    <p>At the end of any simulation, the `phtStats()` method is launched. It provides information
+        about:
+    <ul>
+        <li>Number of keys in the Pht</li>
+        <li>Number of nodes in the Pht</li>
+        <li>Number of leaves in the requests</li>
+        <li>Number of requests</li>
+        <li>Number of leaves with more than B keys</li>
+        <li>Pht height</li>
+        <li>Minimum height</li>
+        <li>Ten most used nodes</li>
+        <li>Ten least used nodes</li>
+        <li>Ten most loaded leaves</li>
+        <li>Ten least loaded leaves</li>
+    </ul>
+    </p>
+
+
+    <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/nongbottom/Peersim-pht">Peersim-pht</a> is maintained by <a href="https://github.com/nongbottom">nongbottom</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+    </footer>
+
+</section>
+</body>
+</html>
