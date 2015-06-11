@@ -39,11 +39,14 @@
         <a href="https://www.eecs.berkeley.edu/~sylvia/papers/pht.pdf">original paper</a>.
     </p>
 
+
     <h3>Data Structure</h3>
     <p>
+        <img src="img/pht.png" alt="Prefix hash tree" style="float: right; width: 250px;">
         Prefix hash tree is a distributed data structure that relies on a Distributed hash table (Dht). Every node of
         the tree is labeled with a binary string, e.g.: the sons of a node whose label is <em>l</em> will be
         <em>l0</em> and l1. It has the following properties:
+    </p>
         <ol>
             <li>(Universal prefix) Each node has either 0 or 2 children.</li>
             <li>(Keystorage) A key K is stored at a leaf node whose label is a prefix of K.</li>
@@ -52,11 +55,11 @@
             <li>(Threadedleaves) Each leaf node maintains a pointer to the leaf nodes on its immediate left and
                 immediate right respectively.</li>
         </ol>
-    </p>
 
     <h3>Operations</h3>
     <p>
         A Pht provides some basic and more complex operations. The basic ones are:
+    </p>
         <ol>
             <li>Insert: insert a key with its data into the Pht.</li>
             <li>Delete: delte the given key with its related data from the Pht.</li>
@@ -64,16 +67,15 @@
             founded.</li>
             <li>Linear Lookup: start a lookup from the root node.</li>
         </ol>
-    </p>
     <p>
         The two more complex operations are range queries. To work they need a to use one of the two possible lookups.
+    </p>
         <ol>
             <li>Sequential Query: search for the leaf which is responsible for the beginning of the range key, then use
             the links between leaves to visit every leaf that has key in the searched range.</li>
             <li>Parallel Query: search for the node whose label is the smallest common prefix between the beginning and
             the end of the range keys, and flood its sub-tree (the leaves in the range will send their keys).</li>
         </ol>
-    </p>
 
     <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/nongbottom/Peersim-pht">Peersim-pht</a> is maintained by <a href="https://github.com/nongbottom">nongbottom</a>.</span>
