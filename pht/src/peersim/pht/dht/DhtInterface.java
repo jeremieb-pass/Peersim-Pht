@@ -1,4 +1,4 @@
-package peersim.pht;
+package peersim.pht.dht;
 
 import peersim.core.Node;
 import peersim.pht.messages.PhtMessage;

@@ -4,6 +4,7 @@ import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
 import peersim.pht.*;
+import peersim.pht.statistics.Stats;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -15,7 +16,7 @@ import java.util.List;
  * start every request from the same Node the bootstrap.
  */
 public class MSPClient implements Control, Client {
-    private static final int BOOTSTRAP = 0;
+    private final int bootstrap;
 
     private static boolean exe = false;
 
@@ -33,12 +34,14 @@ public class MSPClient implements Control, Client {
         int maxKeys = Configuration.getInt(prefix + ".max");
         List<String> keys = PhtUtil.genKeys(len);
 
+        this.bootstrap = Configuration.getInt(prefix + ".bootstrap");
+
         System.out.println("MSPClient");
 
         kdata    = new LinkedList<PhtData>();
         next     = 0;
         exe      = true;
-        this.pht = (PhtProtocol) Network.get(BOOTSTRAP).getProtocol(phtid);
+        this.pht = (PhtProtocol) Network.get(bootstrap).getProtocol(phtid);
         inserted = new LinkedList<String>();
         removed  = new LinkedList<String>();
 
@@ -110,12 +113,17 @@ public class MSPClient implements Control, Client {
                     break;
 
                 default:
-                    System.out.printf("[MSPClient] case3\n");
-                    try {
-                        PhtUtil.phtStats();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    System.out.printf("[MSPClient] case4\n");
+//                    try {
+//                        PhtUtil.phtStats();
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
+
+                    Stats st = Stats.getInstance();
+
+                    st.addNetwork();
+                    st.printAll();
                     return true;
             }
         }

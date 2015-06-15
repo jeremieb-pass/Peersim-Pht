@@ -62,6 +62,76 @@ public class PhtUtil {
        return res;
     }
 
+    /**
+     * Is key strictly inferior to min ? First character strictly inferior to
+     * min's one means true.
+     * @param min Current minimum key
+     * @param key Key to test
+     * @return key < min
+     */
+    public static boolean infTo (String min, String key) {
+        if (min == null) {
+            return true;
+        } else if (key == null) {
+            return false;
+        }
+
+        int minLen = min.length() < key.length() ? min.length() : key.length();
+        for (int i = 0; i < minLen; i++) {
+            if (key.charAt(i) < min.charAt(i)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Is key strictly inferior to min ? First character strictly inferior to
+     * min's one means true. Call to infTo(String, String).
+     * @param min Current minimum key
+     * @param key Key to test
+     * @return key < min
+     */
+    public static boolean infTo (PhtNode min, PhtNode key) {
+        return infTo(min.getLabel(), key.getLabel());
+    }
+
+    /**
+     * Is key strictly superior to min ? First character strictly superior to
+     * min's one means true.
+     * @param max Current maximum key
+     * @param key Key to test
+     * @return key > max
+     */
+    public static boolean supTo (String max, String key) {
+        if (max == null) {
+            return true;
+        } else if (key == null) {
+            return false;
+        }
+
+        int maxLen = max.length() < key.length() ? max.length() : key.length();
+        for (int i = 0; i < maxLen; i++) {
+            if (key.charAt(i) > max.charAt(i)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Is key strictly superior to min ? First character strictly superior to
+     * min's one means true. Call to supTo(String,String).
+     * @param max Current maximum key
+     * @param key Key to test
+     * @return key > max
+     */
+    public static boolean supTo (PhtNode max, PhtNode key) {
+        return supTo(max.getLabel(), key.getLabel());
+    }
+
 
     public static boolean inRangeMax (String s1, String s2) {
         int max;
@@ -377,7 +447,6 @@ public class PhtUtil {
                         assert node.getRson().getNode() == null;
                     }
 
-                    System.out.println("checkTrie:: key: " + key);
                     cpt++;
                 }
 

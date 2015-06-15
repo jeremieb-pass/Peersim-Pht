@@ -11,7 +11,7 @@ compile:
 
 run:
 	@(echo $(PEERSIM_JARS) ++ $(LIB_JARS))
-	java -cp $(LIB_JARS):classes peersim.Simulator examplePHText.cfg
+	java -ea -cp $(LIB_JARS):classes peersim.Simulator examplePHT.cfg
 
 all: compile run
 

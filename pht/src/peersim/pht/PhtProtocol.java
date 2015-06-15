@@ -4,12 +4,14 @@ import peersim.config.Configuration;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
+import peersim.pht.dht.DhtInterface;
 import peersim.pht.dht.MSPClient;
 import peersim.pht.dht.MSPastryListener;
 import peersim.pht.exceptions.*;
 //import peersim.pht.tests.EDSimulator;
 import peersim.edsim.EDSimulator;
 import peersim.pht.messages.*;
+import peersim.pht.statistics.Stats;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -47,28 +49,44 @@ public class PhtProtocol implements EDProtocol {
     private static final int PHT_LOOKUP      = 4;
     private static final int PHT_RANGE_QUERY = 5;
 
-
-    private int rqCount = 0;
-    private int rqTotal = 0;
+    private long rqCount = 0;
+    private long rqTotal = 0;
 
     private static String prefix;
+
+    /* __________ Log fields __________ */
 
     private static boolean logOk;
     private static int logCount;
     private static StringBuffer logBuf;
     private static FileWriter logFile;
 
+    /* __________ Statistics __________ */
+
+    // Global statistics
+    private static Stats stats;
+
+    // Every time this Node (the machine in the network) is beein used
+    private long usage;
+
+    // Every time this Node is the destination for an operation
+    private long usageDest;
+
     /* The dht provides the basic operation that we need */
     private DhtInterface dht;
 
-    /* For tests only */
+    /* __________ Tests __________ */
+
     private static boolean init = false;
     private static long nextId  = 0;
 
-    private static int phtid;
+    /* __________ General information __________ */
 
-    private final int currentLookup     = PhtMessage.LIN_LOOKUP;
-    private int currentRangeQuery = PhtMessage.PAR_QUERY;
+    private static int phtid;
+    private long nid;
+
+    private static int currentLookup;
+    private static int currentRangeQuery;
 
     private Node node;
     private int state;
@@ -78,26 +96,6 @@ public class PhtProtocol implements EDProtocol {
     /* Map a request id with a client */
     private final Map<Long, Client> clients;
 
-    public PhtProtocol(DhtInterface dht) throws IOException {
-        this(dht, 2, 6, 1);
-    }
-
-    public PhtProtocol(DhtInterface dht, int B, int D, int MAX) throws IOException {
-        PhtProtocol.B   = B;
-        PhtProtocol.D   = D;
-        PhtProtocol.MAX = MAX;
-        phtid           = 2;
-        this.dht        = dht;
-        this.node       = dht.getNode();
-        this.nodes      = new ConcurrentHashMap<String, PhtNode>();
-        this.clients    = new TreeMap<Long, Client>();
-
-        logCount = 0;
-        logOk    = true;
-        logBuf   = new StringBuffer(10);
-        logFile  = new FileWriter("phtprotocol_tests.log");
-    }
-
     public PhtProtocol(String prefix) throws IOException {
         String logValue = Configuration.getString(prefix + ".log");
         int dhtid = Configuration.getPid(prefix + "." + "dht");
@@ -106,10 +104,16 @@ public class PhtProtocol implements EDProtocol {
 
         PhtProtocol.B = Configuration.getInt(prefix + "." + "B");
         PhtProtocol.D = Configuration.getInt(prefix + "." + "D");
+
+
+        // Lookup
+        currentLookup = PhtMessage.LIN_LOOKUP;
+
+        // Range query
         if (Configuration.getString(prefix + ".rq").equals("seq")) {
-            this.currentRangeQuery = PhtMessage.SEQ_QUERY;
+            currentRangeQuery = PhtMessage.SEQ_QUERY;
         } else {
-            this.currentRangeQuery = PhtMessage.PAR_QUERY;
+            currentRangeQuery = PhtMessage.PAR_QUERY;
         }
 
         this.state      = PHT_INIT;
@@ -139,6 +143,8 @@ public class PhtProtocol implements EDProtocol {
     public long insertion(String key, Object data, Client client) {
         if (this.state != PHT_INIT) {
             return -1;
+        } else if (! PhtProtocol.init) {
+            return -1;
         }
 
         nextId++;
@@ -162,6 +168,10 @@ public class PhtProtocol implements EDProtocol {
      * @return The Id of the request
      */
     public long suppression(String key, Client client) {
+        if (! PhtProtocol.init) {
+            return -1;
+        }
+
         nextId++;
         this.clients.put(nextId, client);
         this.state = PHT_SUPPRESSION;
@@ -194,7 +204,10 @@ public class PhtProtocol implements EDProtocol {
         log( String.format("((%d)) query (%s)    [%d]\n",
                 nextId, key, this.node.getID()) );
 
-        query(key, this.currentLookup, nextId);
+        // Statistics
+        stats.incClientLookup(currentLookup);
+
+        query(key, currentLookup, nextId);
 
         return nextId;
     }
@@ -207,11 +220,18 @@ public class PhtProtocol implements EDProtocol {
      * @return The Id of the query
      */
     public long rangeQuery(String keyMin, String keyMax, Client client) {
+        if (! PhtProtocol.init) {
+            return -1;
+        }
+
         nextId++;
         this.state   = PHT_RANGE_QUERY;
         this.rqTotal = 0;
         this.rqCount = 0;
         this.clients.put(nextId, client);
+
+        // Statistics
+        stats.incClientRangeQuery(currentRangeQuery);
 
         rangeQuery(keyMin, keyMax, nextId);
 
@@ -232,7 +252,7 @@ public class PhtProtocol implements EDProtocol {
         PhtMessage message;
         PMLookup pml;
 
-        if (this.currentLookup == PhtMessage.LIN_LOOKUP) {
+        if (currentLookup == PhtMessage.LIN_LOOKUP) {
             startKey = "";
         } else {
             startKey = key.substring(0, PhtProtocol.D/2);
@@ -241,7 +261,7 @@ public class PhtProtocol implements EDProtocol {
         System.out.println("::query::");
 
         pml = new PMLookup(key, operation, null, startKey);
-        message = new PhtMessage(this.currentLookup, this.node, null, id, pml);
+        message = new PhtMessage(currentLookup, this.node, null, id, pml);
 
         dht.send(message, startKey);
     }
@@ -262,25 +282,35 @@ public class PhtProtocol implements EDProtocol {
         PMLookup pml;
         PMRangeQuery pmrq;
 
-        if (this.currentRangeQuery == PhtMessage.SEQ_QUERY) {
+        if (currentRangeQuery == PhtMessage.SEQ_QUERY) {
             startKey = keyMin;
         } else {
             startKey = PhtUtil.smallestCommonPrefix(keyMin, keyMax);
         }
 
-        if (this.currentLookup == PhtMessage.LIN_LOOKUP) {
+        if (currentLookup == PhtMessage.LIN_LOOKUP) {
             startLookup = "";
         }
         System.out.printf("::rquery:: startKey: '%s' <> startLookup: '%s'\n",
                 startKey, startLookup);
 
         pmrq    = new PMRangeQuery(keyMin, keyMax);
-        pml     = new PMLookup(startKey, this.currentRangeQuery, null, startLookup, pmrq);
-        message = new PhtMessage(this.currentLookup, this.node, null, id, pml);
+        pml     = new PMLookup(startKey, currentRangeQuery, null, startLookup, pmrq);
+        message = new PhtMessage(currentLookup, this.node, null, id, pml);
 
         System.out.println("::rquery:: this node id is " + this.node.getID());
 
         dht.send(message, startLookup);
+    }
+
+    /* _______________________________          _____________________________ */
+    /* _______________________________ Initiate _____________________________ */
+
+    public void sendInit(String recipient) {
+        PhtMessage message;
+
+        message = new PhtMessage(PhtMessage.INIT, this.node, "", 0, null);
+        this.dht.send(message, recipient);
     }
 
     /* _____________________                              ___________________ */
@@ -371,9 +401,9 @@ public class PhtProtocol implements EDProtocol {
         NodeInfo next;
         PhtNode node;
 
-        if (! init) {
-            initiate();
-        }
+//        if (! init) {
+//            initiate();
+//        }
 
         // Get the node
         node = this.nodes.get(pml.getDestLabel());
@@ -429,29 +459,23 @@ public class PhtProtocol implements EDProtocol {
             case PhtMessage.SUPRESSION:
                 message.setMore(node.remove(pml.getKey()));
                 message.setType( PhtMessage.ACK_SUPRESSION );
-
-                node.useDest();
                 break;
 
             case PhtMessage.LIN_LOOKUP:
                 pml.setLess( node.get(pml.getKey()) );
                 message.setType( PhtMessage.ACK_LIN_LOOKUP );
-
-                node.useDest();
                 break;
 
             case PhtMessage.INSERTION:
                 message.setType(PhtMessage.ACK_LIN_LOOKUP);
-
-                node.useDest();
                 break;
 
             case PhtMessage.SEQ_QUERY:
                 processSeqQuery(message, pml);
-
-                node.useDest();
                 return;
         }
+        node.useDest();
+        this.usageDest++;
 
         pml.setDest(this.node);
         EDSimulator.add(0, message, message.getInitiator(), phtid);
@@ -479,6 +503,7 @@ public class PhtProtocol implements EDProtocol {
 
         node.use();
         node.useDest();
+        this.usageDest++;
 
         if (pml.getLess() instanceof PMRangeQuery) {
             pmrq = (PMRangeQuery) pml.getLess();
@@ -521,6 +546,9 @@ public class PhtProtocol implements EDProtocol {
         if (pmrq.isEnd()) {
             System.out.printf("::processSeqQuery:: end '%s' to '%s'\n",
                     pmrq.getKeyMin(), pmrq.getKeyMax());
+
+            // Statistics
+            stats.addSeqQuery(message, pmrq);
             return;
         }
 
@@ -647,6 +675,7 @@ public class PhtProtocol implements EDProtocol {
         EDSimulator.add(0, message, message.getInitiator(), phtid);
 
         node.useDest();
+        this.usageDest++;
         if (node.getLabel().equals("")) {
             next = new NodeInfo("", this.node);
         } else {
@@ -711,6 +740,7 @@ public class PhtProtocol implements EDProtocol {
         }
         node.use();
         node.useDest();
+        this.usageDest++;
 
         res = node.insert(pml.getKey(), pml.getLess());
 
@@ -753,6 +783,7 @@ public class PhtProtocol implements EDProtocol {
 
         node.use();
         node.useDest();
+        this.usageDest++;
 
         log(String.format("((%d)) processSplit [initiator: '%s' <> '%s'][type: %d] "
                         + "[label: '%s']    [%d]\n",
@@ -810,6 +841,7 @@ public class PhtProtocol implements EDProtocol {
 
         node.use();
         node.useDest();
+        this.usageDest++;
 
         if (pml.getLess() instanceof List) {
 
@@ -877,6 +909,7 @@ public class PhtProtocol implements EDProtocol {
 
         node.use();
         node.useDest();
+        this.usageDest++;
 
         if (pml.getLess() instanceof List) {
 
@@ -1177,6 +1210,7 @@ public class PhtProtocol implements EDProtocol {
 
         father.use();
         father.useDest();
+        this.usageDest++;
 
         update = message.getType() - PhtMessage.UPDATE_NBKEYS;
         father.updateNbKeys(update);
@@ -1236,6 +1270,7 @@ public class PhtProtocol implements EDProtocol {
 
         node.use();
         node.useDest();
+        this.usageDest++;
 
         log(String.format("((%d)) [%s] processUpdatePreviousLeaf: Node found !\n",
                 message.getId(),
@@ -1272,6 +1307,7 @@ public class PhtProtocol implements EDProtocol {
 
         node.use();
         node.useDest();
+        this.usageDest++;
 
         log(String.format("((%d)) [%s] processUpdateNextLeaf: Node found !\n",
                 message.getId(),
@@ -1440,6 +1476,7 @@ public class PhtProtocol implements EDProtocol {
 
         node.use();
         node.useDest();
+        this.usageDest++;
 
         if (pml.getLess() instanceof Integer) {
             count = (Integer) pml.getLess();
@@ -1669,6 +1706,7 @@ public class PhtProtocol implements EDProtocol {
 
         node.use();
         node.useDest();
+        this.usageDest++;
 
         label = node.getLabel();
         info = new LinkedList<NodeInfo>();
@@ -1786,6 +1824,7 @@ public class PhtProtocol implements EDProtocol {
 
         node.use();
         node.useDest();
+        this.usageDest++;
 
         label = node.getLabel();
 
@@ -1899,6 +1938,7 @@ public class PhtProtocol implements EDProtocol {
 
         node.use();
         node.useDest();
+        this.usageDest++;
 
         label = pml.getDestLabel();
 
@@ -2425,6 +2465,9 @@ public class PhtProtocol implements EDProtocol {
             return;
         }
 
+        // A PhtMessage has arrived: this Node has been used
+        this.usage++;
+
         /*
          * Big switch with just one call to the right method to process
          * the request
@@ -2481,24 +2524,27 @@ public class PhtProtocol implements EDProtocol {
                 case PhtMessage.SUPRESSION:
                     break;
 
-
                 case PhtMessage.UPDATE_NBKEYS_MINUS:
                 case PhtMessage.UPDATE_NBKEYS_PLUS:
                     processUpdateNbKeys(message, pml);
                     break;
 
                 case PhtMessage.LIN_LOOKUP:
+                    stats.incLookup(currentLookup);
                     processLinLookup(message, pml);
                     break;
 
                 case PhtMessage.BIN_LOOKUP:
+                    stats.incLookup(currentLookup);
                     break;
 
                 case PhtMessage.SEQ_QUERY:
+                    stats.incRangeQuery(currentRangeQuery);
                     processSeqQuery(message, pml);
                     break;
 
                 case PhtMessage.PAR_QUERY:
+                    stats.incRangeQuery(currentRangeQuery);
                     processParQuery(message, pml);
                     break;
 
@@ -2697,6 +2743,30 @@ public class PhtProtocol implements EDProtocol {
         return nextId;
     }
 
+    /**
+     * Get usage
+     *
+     * @return Number of times this Node (physical machine) has been used
+     * during the simulation
+     */
+    public long getUsage() {
+        return this.usage;
+    }
+
+    /**
+     * Get usageDest
+     *
+     * @return Number of times this Node (physical machine) has been
+     * the destination for an operation.
+     */
+    public long getUsageDest() {
+        return this.usageDest;
+    }
+
+    public long getId() {
+        return this.nid;
+    }
+
    /* ___________________________                ___________________________ */
     /* ___________________________ Setter methods ___________________________ */
 
@@ -2717,6 +2787,22 @@ public class PhtProtocol implements EDProtocol {
         this.node = this.dht.getNode();
     }
 
+    /**
+     * Once everything has been initialized, get the Stats instance.
+     */
+    public void setStats() {
+        stats = Stats.getInstance();
+    }
+
+    /**
+     * Set the nid field to the index of this PhtProtocol in the Network
+     * nodes array.
+     *
+     * @param id new nid for this PhtProtocol
+     */
+    public void setNodeId(long id) {
+        this.nid = id;
+    }
 
     /*_________________________                        ______________________ */
     /*_________________________ Initiation for PeerSim ______________________ */

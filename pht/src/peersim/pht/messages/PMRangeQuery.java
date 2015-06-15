@@ -14,7 +14,7 @@ import java.util.List;
  * for a parallel lookup) and send a general acquittal to the initiator node.
  */
 public class PMRangeQuery {
-    private int count;
+    private long count;
     private boolean end;
     private final String keyMin;
     private final String keyMax;
@@ -24,7 +24,7 @@ public class PMRangeQuery {
         this(keyMin, keyMax, 0);
     }
 
-    public PMRangeQuery(String keyMin, String keyMax, int count) {
+    public PMRangeQuery(String keyMin, String keyMax, long count) {
         this.keyMin = keyMin;
         this.keyMax = keyMax;
         this.count  = count;
@@ -71,7 +71,7 @@ public class PMRangeQuery {
         return keyMax;
     }
 
-    public int getCount() {
+    public long getCount() {
         return this.count;
     }
 

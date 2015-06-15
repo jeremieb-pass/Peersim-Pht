@@ -4,7 +4,6 @@ import peersim.config.Configuration;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.pastry.MSPastryProtocol;
-import peersim.pht.DhtInterface;
 import peersim.pht.PhtUtil;
 import peersim.pht.messages.PhtMessage;
 
