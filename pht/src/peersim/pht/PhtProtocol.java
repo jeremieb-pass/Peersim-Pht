@@ -155,6 +155,9 @@ public class PhtProtocol implements EDProtocol {
         log(String.format("((%d)) insertion (%s, %s)    [%d]\n",
                 nextId, key, data, this.node.getID()));
 
+        // Statistics
+        stats.curr().incInsert();
+
         query(key, PhtMessage.INSERTION, nextId);
 
         return nextId;
@@ -178,6 +181,9 @@ public class PhtProtocol implements EDProtocol {
 
         log( String.format("((%d)) suppression (%s)    [%d]\n",
                 nextId, key, this.node.getID()) );
+
+        // Statistics
+        stats.curr().incDelete();
 
         query(key, PhtMessage.SUPRESSION, nextId);
 
@@ -205,7 +211,7 @@ public class PhtProtocol implements EDProtocol {
                 nextId, key, this.node.getID()) );
 
         // Statistics
-        stats.incClientLookup(currentLookup);
+        stats.curr().incClientLookup(currentLookup);
 
         query(key, currentLookup, nextId);
 
@@ -231,7 +237,7 @@ public class PhtProtocol implements EDProtocol {
         this.clients.put(nextId, client);
 
         // Statistics
-        stats.incClientRangeQuery(currentRangeQuery);
+        stats.curr().incClientRangeQuery(currentRangeQuery);
 
         rangeQuery(keyMin, keyMax, nextId);
 
@@ -332,6 +338,16 @@ public class PhtProtocol implements EDProtocol {
         log( String.format("((%d)) sendSplit [initiator: '%s' on node %d][son: '%s']\n",
                 message.getId(), label, this.node.getID(), son) );
 
+        /*
+         * Statistics
+         *
+         * For each split, this method is called twice. So just count the call
+         * for the right son
+         */
+        if (son.endsWith("1")) {
+            stats.curr().incSplit();
+        }
+
         dht.send(message, son);
     }
 
@@ -350,6 +366,16 @@ public class PhtProtocol implements EDProtocol {
 
         log(String.format("((%d)) sendMerge from '%s'(%d) to '%s'(%d)\n",
                 nextId, label, this.node.getID(), son.getKey(), son.getNode().getID()));
+
+        /*
+         * Statistics
+         *
+         * For each merge, this method is called twice. So just count the call
+         * for the right son
+         */
+        if (son.getKey().endsWith("1")) {
+            stats.curr().incMerge();
+        }
 
         EDSimulator.add(0, message, son.getNode(), phtid);
     }
@@ -548,7 +574,7 @@ public class PhtProtocol implements EDProtocol {
                     pmrq.getKeyMin(), pmrq.getKeyMax());
 
             // Statistics
-            stats.addSeqQuery(message, pmrq);
+            stats.curr().addSeqQuery(message, pmrq);
             return;
         }
 
@@ -1007,14 +1033,8 @@ public class PhtProtocol implements EDProtocol {
         label = pml.getDestLabel();
 
         node = this.nodes.get(label);
-//        for (PhtNode nd: this.nodes.values()) {
-//            if (nd.getLabel().equals(label)) {
-//                node = nd;
-//                break;
-//            }
-//        }
 
-        /* If the node does not exists, there is a problem */
+        // If the node does not exists, there is a problem
         if (node == null) {
             throw new CantSplitException("processMerge node null\n"
                     + " <> state: " + this.state
@@ -1087,7 +1107,6 @@ public class PhtProtocol implements EDProtocol {
          * direct communications, we update the dest field of PMLookup (the
          * son).
          */
-//        pml.setDest(this.node);
         pml.setLess(leaf);
         message.setType(PhtMessage.ACK_MERGE_LEAVES);
         EDSimulator.add(0, message, message.getInitiator(), phtid);
@@ -1189,12 +1208,6 @@ public class PhtProtocol implements EDProtocol {
         PhtNode father;
 
         father = this.nodes.get(pml.getDestLabel());
-//        for (PhtNode nd: this.nodes.values()) {
-//            if (nd.getLabel().equals(pml.getDestLabel())) {
-//                father = nd;
-//                break;
-//            }
-//        }
 
         // If the father who receives this message does not exist there is a
         // problem
@@ -1227,6 +1240,8 @@ public class PhtProtocol implements EDProtocol {
             } else {
                 MSPClient.release();
             }
+        } else if (!ok && (update < 0) && (father.getNbKeys() < PhtProtocol.B+1)) {
+            stats.curr().incMergeAvoid();
         }
 
         if (! father.getLabel().equals("")) {
@@ -1716,7 +1731,7 @@ public class PhtProtocol implements EDProtocol {
          * father node has started a split operation.
          */
 
-        // Get the data for the left and right sons
+        // Get the leaves for the left and right sons
         if (pml.getDestLabel().charAt(label.length()) == '0') {
             info.add( node.getPrevLeaf() );
             info.add( node.getRson() );
@@ -1832,12 +1847,22 @@ public class PhtProtocol implements EDProtocol {
         if (pml.getDestLabel().charAt(label.length()) == '0') {
             data = node.splitDataLson();
 
+            // Statistics
+            if (data.size() == node.getNbKeys()) {
+                stats.curr().incSplitAvoid();
+            }
+
             if (! node.state.ackSplitLeavesLson() ) {
                 interrupt();
             }
             node.setLson( new NodeInfo(pml.getDestLabel(), pml.getDest()) );
         } else {
             data = node.splitDataRson();
+
+            // Statistics
+            if (data.size() == node.getNbKeys()) {
+                stats.curr().incSplitAvoid();
+            }
 
             if (! node.state.ackSplitLeavesRson() ) {
                 interrupt();
@@ -1970,7 +1995,6 @@ public class PhtProtocol implements EDProtocol {
                         + " <> key: " + pml.getKey()
                         + " <> father's label: '" + message.getInitiatorLabel() + "'\n"
                         + " <> father's label: '" + pml.getKey()
-//                        + "' (-> " + Integer.parseInt(pml.getKey(), 2) + ")\n"
                         + " <> father's node: " + message.getInitiator().getID() + "\n"
                         + " <> this nodes is: " + this.node.getID()
                         + " <> type: " + PhtMessage.SPLIT_DATA + "\n\n"
@@ -2018,12 +2042,6 @@ public class PhtProtocol implements EDProtocol {
 
         // Get the father
         node = this.nodes.get(message.getInitiatorLabel());
-//        for (PhtNode nd: this.nodes.values()) {
-//            if (nd.getLabel().equals(message.getInitiatorLabel())) {
-//                node = nd;
-//                break;
-//            }
-//        }
         if (node == null) {
             StringBuilder sb = new StringBuilder(this.nodes.size());
 
@@ -2040,14 +2058,10 @@ public class PhtProtocol implements EDProtocol {
                     + " <> nodes " + sb.toString());
         }
 
-        // The first son was not a leaf, the merge process stops here.
-        // No need to inform this son (not waiting for and answer).
-        if (node.state.isStable()) {
-            return;
-        }
-
         if (! continueMerge) {
             node.state.noMerge();
+
+            System.out.println("No merge");
 
             message.setType(PhtMessage.NO_MERGE);
             if (pml.getDestLabel().endsWith("0")) {
@@ -2059,25 +2073,11 @@ public class PhtProtocol implements EDProtocol {
             return;
         }
 
-        // Change the node's state
-//        son = pml.getDestLabel();
-//        if (son.endsWith("0")) {
-//            if (! node.state.ackMergeLson() ) {
-//                interrupt();
-//            }
-//        } else {
-//            if (! node.state.ackMergeRson() ) {
-//                interrupt();
-//            }
-//        }
-
         log(String.format("((%d)) processAck_Merge [node: '%s'][initiator: '%s' on %d] \n",
                 message.getId(), node.getLabel(),
                 message.getInitiatorLabel(), message.getInitiator().getID()));
 
-//        pml.setLess(true);
         message.setType(PhtMessage.MERGE_LEAVES);
-
         EDSimulator.add(0, message, pml.getDest(), phtid);
     }
 
@@ -2110,12 +2110,6 @@ public class PhtProtocol implements EDProtocol {
 
         // Get the father
         node = this.nodes.get(message.getInitiatorLabel());
-//        for (PhtNode nd: this.nodes.values()) {
-//            if (nd.getLabel().equals(message.getInitiatorLabel())) {
-//                node = nd;
-//                break;
-//            }
-//        }
         if (node == null) {
             throw new PhtNodeNotFoundException("processAck_MergeLeaves "
                     + " <> state: " + this.state
@@ -2530,21 +2524,21 @@ public class PhtProtocol implements EDProtocol {
                     break;
 
                 case PhtMessage.LIN_LOOKUP:
-                    stats.incLookup(currentLookup);
+                    stats.curr().incLookup(currentLookup);
                     processLinLookup(message, pml);
                     break;
 
                 case PhtMessage.BIN_LOOKUP:
-                    stats.incLookup(currentLookup);
+                    stats.curr().incLookup(currentLookup);
                     break;
 
                 case PhtMessage.SEQ_QUERY:
-                    stats.incRangeQuery(currentRangeQuery);
+                    stats.curr().incRangeQuery(currentRangeQuery);
                     processSeqQuery(message, pml);
                     break;
 
                 case PhtMessage.PAR_QUERY:
-                    stats.incRangeQuery(currentRangeQuery);
+                    stats.curr().incRangeQuery(currentRangeQuery);
                     processParQuery(message, pml);
                     break;
 
@@ -2678,6 +2672,16 @@ public class PhtProtocol implements EDProtocol {
         return null;
     }
 
+    /*_______________________________            ____________________________ */
+    /*_______________________________ Statistics ____________________________ */
+
+    /**
+     * Once everything has been initialized, get the PhaseStats instance.
+     */
+    public void setStats() {
+        stats = Stats.getInstance();
+    }
+
     /* ___________________________               ____________________________ */
     /* ___________________________ Tests methods ____________________________ */
 
@@ -2788,13 +2792,6 @@ public class PhtProtocol implements EDProtocol {
     }
 
     /**
-     * Once everything has been initialized, get the Stats instance.
-     */
-    public void setStats() {
-        stats = Stats.getInstance();
-    }
-
-    /**
      * Set the nid field to the index of this PhtProtocol in the Network
      * nodes array.
      *
@@ -2803,6 +2800,7 @@ public class PhtProtocol implements EDProtocol {
     public void setNodeId(long id) {
         this.nid = id;
     }
+
 
     /*_________________________                        ______________________ */
     /*_________________________ Initiation for PeerSim ______________________ */

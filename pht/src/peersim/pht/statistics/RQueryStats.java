@@ -15,7 +15,7 @@ import java.util.*;
  *     <li>count queries messages</li>
  * </ul>
  */
-public class RQueryStats {
+class RQueryStats {
     private static RQueryStats rqst;
 
     /*

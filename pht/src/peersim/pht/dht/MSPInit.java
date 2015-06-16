@@ -5,7 +5,6 @@ import peersim.core.Control;
 import peersim.core.Network;
 import peersim.pastry.MSPastryProtocol;
 import peersim.pht.PhtProtocol;
-import peersim.pht.statistics.Stats;
 
 public class MSPInit implements Control{
     private final int mspid;
@@ -28,8 +27,6 @@ public class MSPInit implements Control{
         MSPastry dht;
         PhtProtocol prot = null;
         MSPastryListener lst;
-
-        Stats.init();
 
         for (int i = 0; i < Network.size(); i++) {
             msprot = ((MSPastryProtocol)Network.get(i).getProtocol(this.mspid));

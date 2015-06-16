@@ -11,9 +11,7 @@ import java.util.*;
  *     Dedicated class for PhtNode statistics.
  * </p>
  */
-public class PhtNodeStats {
-    protected static PhtNodeStats pnStats;
-
+class PhtNodeStats {
     /*
      * Tree with all the PhtNodes in the network
      */
@@ -38,19 +36,10 @@ public class PhtNodeStats {
     private PhtNode maxKeysBinf;
     private PhtNode maxKeysBsup;
 
-    protected PhtNodeStats() {
-    }
-
-    public static synchronized PhtNodeStats getInstance() {
-        if (pnStats == null) {
-            pnStats    = new PhtNodeStats();
-            pnStats.pn = new TreeSet<PhtNode>(new PhtNodeCompUsage());
-
-            pnStats.kpnLeavesBinf = new TreeSet<PhtNode>(new PhtNodeCompKeys());
-            pnStats.kpnLeavesBsup = new TreeSet<PhtNode>(new PhtNodeCompKeys());
-        }
-
-        return pnStats;
+    public PhtNodeStats() {
+        this.pn            = new TreeSet<PhtNode>(new PhtNodeCompUsage());
+        this.kpnLeavesBinf = new TreeSet<PhtNode>(new PhtNodeCompKeys());
+        this.kpnLeavesBsup = new TreeSet<PhtNode>(new PhtNodeCompKeys());
     }
 
     /**
@@ -153,17 +142,21 @@ public class PhtNodeStats {
                     nd.getLabel(), nd.getNbKeys(), nd.getUsage());
         }
 
-        System.out.printf("\nMin, avg, max in the 'less than B keys set':\n"
-                + "[%s] %d keys <> %.1f keys on average <> [%s] %d keys\n",
-                this.minKeysBinf.getLabel(), this.minKeysBinf.getNbKeys(),
-                (float)this.nbKeysBinf / (float)nbLeavesBinf,
-                this.maxKeysBinf.getLabel(), this.maxKeysBinf.getNbKeys());
+        if (this.minKeysBinf != null && this.maxKeysBinf != null) {
+            System.out.printf("\nMin, avg, max in the 'less than B keys set':\n"
+                            + "[%s] %d keys <> %.1f keys on average <> [%s] %d keys\n",
+                    this.minKeysBinf.getLabel(), this.minKeysBinf.getNbKeys(),
+                    (float) this.nbKeysBinf / (float) nbLeavesBinf,
+                    this.maxKeysBinf.getLabel(), this.maxKeysBinf.getNbKeys());
+        }
 
-        System.out.printf("\nMin, avg, max in the 'more than B keys set':\n"
-                        + "[%s] %d keys <> %.1f keys on average <> [%s] %d keys\n",
-                this.minKeysBsup.getLabel(), this.minKeysBsup.getNbKeys(),
-                (float)this.nbKeysBsup / (float)nbLeavesBsup,
-                this.maxKeysBsup.getLabel(), this.maxKeysBsup.getNbKeys());
+        if (this.minKeysBsup != null && this.maxKeysBsup != null) {
+            System.out.printf("\nMin, avg, max in the 'more than B keys set':\n"
+                            + "[%s] %d keys <> %.1f keys on average <> [%s] %d keys\n",
+                    this.minKeysBsup.getLabel(), this.minKeysBsup.getNbKeys(),
+                    (float) this.nbKeysBsup / (float) nbLeavesBsup,
+                    this.maxKeysBsup.getLabel(), this.maxKeysBsup.getNbKeys());
+        }
     }
 
     /* __________________                                   _________________ */

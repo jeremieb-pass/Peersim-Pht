@@ -6,7 +6,6 @@ import peersim.core.Network;
 import peersim.pht.*;
 import peersim.pht.statistics.Stats;
 
-import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -16,7 +15,6 @@ import java.util.List;
  * start every request from the same Node the bootstrap.
  */
 public class MSPClient implements Control, Client {
-    private final int bootstrap;
 
     private static boolean exe = false;
 
@@ -29,12 +27,12 @@ public class MSPClient implements Control, Client {
     private static int nextOp = 0;
 
     public MSPClient(String prefix) {
-        int phtid = Configuration.getPid(prefix + ".phtid");
-        int len   = Configuration.getInt(prefix + ".len");
-        int maxKeys = Configuration.getInt(prefix + ".max");
-        List<String> keys = PhtUtil.genKeys(len);
+        int phtid     = Configuration.getPid(prefix + ".phtid");
+        int len       = Configuration.getInt(prefix + ".len");
+        int maxKeys   = Configuration.getInt(prefix + ".max");
+        int bootstrap = Configuration.getInt(prefix + ".bootstrap");
 
-        this.bootstrap = Configuration.getInt(prefix + ".bootstrap");
+        List<String> keys = PhtUtil.genKeys(len);
 
         System.out.println("MSPClient");
 
@@ -58,74 +56,72 @@ public class MSPClient implements Control, Client {
      */
     @Override
     public boolean execute() {
-        if (exe) {
-            PhtData data;
+        if (! exe) {
+            return false;
+        }
 
-            if (next >= kdata.size()) {
-                next = 0;
-                nextOp++;
-                System.out.printf("[MSPClient] nextOp: %d\n", nextOp);
-                PhtUtil.checkTrie(kdata, inserted, removed);
-                PhtUtil.allKeys(inserted);
-            }
+        PhtData data;
 
-            data = kdata.get(next);
-            System.out.printf("[MSPClient] switch: %d\n", nextOp);
-            switch (nextOp) {
-                case 0:
-                    System.out.printf("|| MSPClient || key: '%s'\n", data.getKey());
-                    if ( this.pht.insertion( data.getKey(), data.getData(), this) >= 0) {
-                        lock();
-                        System.out.printf("[MSPClient] insertion\n");
-                        inserted.add(kdata.get(next).getKey());
-                        next++;
-                    }
-                    break;
+        if (next >= kdata.size()) {
+            next = 0;
+            nextOp++;
+            System.out.printf("[MSPClient] nextOp: %d\n", nextOp);
+            PhtUtil.checkTrie(kdata, inserted, removed);
+            PhtUtil.allKeys(inserted);
+        }
 
-                case 1:
-                    if (this.pht.query(data.getKey(), this) >= 0) {
-                        lock();
-                        System.out.printf("[MSPClient] query\n");
-                        next++;
-                    }
-                    break;
+        data = kdata.get(next);
+        System.out.printf("[MSPClient] switch: %d\n", nextOp);
+        switch (nextOp) {
+            case 0:
+                System.out.printf("|| MSPClient || key: '%s'\n", data.getKey());
+                if ( this.pht.insertion( data.getKey(), data.getData(), this) >= 0) {
+                    lock();
+                    System.out.printf("[MSPClient] insertion\n");
+                    inserted.add(kdata.get(next).getKey());
+                    next++;
+                }
+                break;
 
-                case 2:
-                    if (this.pht.suppression(data.getKey(), this) >= 0) {
-                        lock();
-                        inserted.remove(kdata.get(next).getKey());
-                        removed.add(kdata.get(next).getKey());
-                        next += kdata.size()/PhtProtocol.B;
-                    }
-                    break;
+            case 1:
+                if (this.pht.query(data.getKey(), this) >= 0) {
+                    lock();
+                    System.out.printf("[MSPClient] query\n");
+                    next++;
+                }
+                break;
 
-                case 3:
-                    if (this.pht.rangeQuery(
+            case 3:
+                if (this.pht.suppression(data.getKey(), this) >= 0) {
+                    lock();
+                    inserted.remove(kdata.get(next).getKey());
+                    removed.add(kdata.get(next).getKey());
+                    next++;
+                }
+//                next += kdata.size();
+                break;
+
+            case 2:
+                if (this.pht.rangeQuery(
+                        kdata.get(next).getKey(),
+                        kdata.get(kdata.size()-1).getKey(),
+                        this) >= 0) {
+                    lock();
+                    System.out.printf("[MSPClient] rangeQuery '%s' to '%s'\n",
                             kdata.get(next).getKey(),
-                            kdata.get(kdata.size()-1).getKey(),
-                            this) >= 0) {
-                        lock();
-                        System.out.printf("[MSPClient] rangeQuery '%s' to '%s'\n",
-                                kdata.get(next).getKey(),
-                                kdata.get(kdata.size()-1).getKey());
-                        next += kdata.size() / 4;
-                    }
-                    break;
+                            kdata.get(kdata.size()-1).getKey());
+                    next += kdata.size() / 4;
+                }
+                break;
 
-                default:
-                    System.out.printf("[MSPClient] case4\n");
-//                    try {
-//                        PhtUtil.phtStats();
-//                    } catch (IOException e) {
-//                        e.printStackTrace();
-//                    }
+            default:
+                System.out.printf("[MSPClient] case4\n");
 
-                    Stats st = Stats.getInstance();
+                Stats st = Stats.getInstance();
 
-                    st.addNetwork();
-                    st.printAll();
-                    return true;
-            }
+                st.curr().addNetwork();
+                st.curr().printAll();
+                return true;
         }
 
         return false;

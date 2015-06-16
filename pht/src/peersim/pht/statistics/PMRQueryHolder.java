@@ -3,7 +3,7 @@ package peersim.pht.statistics;
 /**
  * Store the needed informations about a range query message.
  */
-public class PMRQueryHolder implements Comparable<PMRQueryHolder> {
+class PMRQueryHolder implements Comparable<PMRQueryHolder> {
     private long id;
     private long count;
     private String keyMin;

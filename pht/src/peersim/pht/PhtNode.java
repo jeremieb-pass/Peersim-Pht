@@ -235,7 +235,7 @@ public class PhtNode {
     }
 
     /**
-     * List of <key, dat> that belongs the the right son.
+     * List of (key, data) that belongs the the right son.
      * Called during a split process.
      * @return List of PhtData who will go to the right son
      */
