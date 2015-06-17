@@ -15,7 +15,7 @@ class PhtNodeStats {
     /*
      * Tree with all the PhtNodes in the network
      */
-    private TreeSet<PhtNode> pn;
+    private TreeSet<PhtNodeInfo> pn;
 
     /*
      * Trees with all the PhtNode leaves, the leaves with less than
@@ -23,8 +23,8 @@ class PhtNodeStats {
      *
      * SORTED BY NUMBER OF KEYS
      */
-    private TreeSet<PhtNode> kpnLeavesBinf;
-    private TreeSet<PhtNode> kpnLeavesBsup;
+    private TreeSet<PhtNodeInfo> kpnLeavesBinf;
+    private TreeSet<PhtNodeInfo> kpnLeavesBsup;
 
     // Number of keys
     private int nbKeysBinf;
@@ -37,9 +37,9 @@ class PhtNodeStats {
     private PhtNode maxKeysBsup;
 
     public PhtNodeStats() {
-        this.pn            = new TreeSet<PhtNode>(new PhtNodeCompUsage());
-        this.kpnLeavesBinf = new TreeSet<PhtNode>(new PhtNodeCompKeys());
-        this.kpnLeavesBsup = new TreeSet<PhtNode>(new PhtNodeCompKeys());
+        this.pn            = new TreeSet<PhtNodeInfo>(new PhtNodeCompUsage());
+        this.kpnLeavesBinf = new TreeSet<PhtNodeInfo>(new PhtNodeCompKeys());
+        this.kpnLeavesBsup = new TreeSet<PhtNodeInfo>(new PhtNodeCompKeys());
     }
 
     /**
@@ -47,10 +47,14 @@ class PhtNodeStats {
      * @param pn PhtNode information to add
      */
     public void addPN (PhtNode pn, boolean isLeaf) {
+        PhtNodeInfo pni;
+
+        pni = new PhtNodeInfo(pn.getLabel(), pn.getUsage(), pn.getUsageDest(), pn.getNbKeys());
+
         if (isLeaf) {
 
             if (pn.getNbKeys() <= PhtProtocol.B) {
-                this.kpnLeavesBinf.add(pn);
+                this.kpnLeavesBinf.add(pni);
                 this.nbKeysBinf += pn.getNbKeys();
 
                 // Update min and max keys for the inferior to B tree
@@ -70,7 +74,7 @@ class PhtNodeStats {
                     maxKeysBinf = pn;
                 }
             } else {
-                this.kpnLeavesBsup.add(pn);
+                this.kpnLeavesBsup.add(pni);
                 this.nbKeysBsup += pn.getNbKeys();
 
                 // Update min and max keys for the superior to B tree
@@ -91,7 +95,7 @@ class PhtNodeStats {
                 }
             }
         }
-        this.pn.add(pn);
+        this.pn.add(pni);
     }
 
     /**
@@ -101,15 +105,15 @@ class PhtNodeStats {
      * @return list of nb (at most) PhtNode
      * keys in the TreeSet set.
      */
-    private List<PhtNode> mostPN (TreeSet<PhtNode> set, int nb) {
-        List<PhtNode> mukpn = new LinkedList<PhtNode>();
+    private List<PhtNodeInfo> mostPN (TreeSet<PhtNodeInfo> set, int nb) {
+        List<PhtNodeInfo> mukpn = new LinkedList<PhtNodeInfo>();
 
-        Iterator<PhtNode> pnIt = set.descendingIterator();
+        Iterator<PhtNodeInfo> pnIt = set.descendingIterator();
         for (int i = 0; (i < nb) && (pnIt.hasNext()); i++) {
-            PhtNode pn = pnIt.next();
+            PhtNodeInfo pni = pnIt.next();
             
             if (pn != null) {
-                mukpn.add(pn);
+                mukpn.add(pni);
             }
         }
         
@@ -123,23 +127,23 @@ class PhtNodeStats {
 
         System.out.printf("Number of PhtNodes: %d (%d leaves)\n%d most used PhtNodes\n",
                 this.pn.size(), nbLeaves, mu);
-        for (PhtNode nd: mostPN(this.pn, mu)) {
+        for (PhtNodeInfo ndi: mostPN(this.pn, mu)) {
             System.out.printf("\t[%s] used %d times (%d times as destination)\n",
-                    nd.getLabel(), nd.getUsage(), nd.getUsageDest());
+                    ndi.getLabel(), ndi.getUsage(), ndi.getUsageDest());
         }
 
         System.out.printf("\nNumber of leaves with less than %d keys: %d\n",
                 PhtProtocol.B, nbLeavesBinf);
-        for (PhtNode nd: mostPN(this.kpnLeavesBinf, mu)) {
+        for (PhtNodeInfo ndi: mostPN(this.kpnLeavesBinf, mu)) {
             System.out.printf("\t[%s] %d keys, used %d times\n",
-                    nd.getLabel(), nd.getNbKeys(), nd.getUsage());
+                    ndi.getLabel(), ndi.getNbKeys(), ndi.getUsage());
         }
 
         System.out.printf("\nNumber of leaves with more than %d keys: %d\n",
                 PhtProtocol.B, nbLeavesBsup);
-        for (PhtNode nd: mostPN(this.kpnLeavesBsup, mu)) {
+        for (PhtNodeInfo ndi: mostPN(this.kpnLeavesBsup, mu)) {
             System.out.printf("\t[%s] %d keys, used %d times\n",
-                    nd.getLabel(), nd.getNbKeys(), nd.getUsage());
+                    ndi.getLabel(), ndi.getNbKeys(), ndi.getUsage());
         }
 
         if (this.minKeysBinf != null && this.maxKeysBinf != null) {
@@ -165,9 +169,9 @@ class PhtNodeStats {
     /**
      * Sort PhtNode by usage.
      */
-    public static class PhtNodeCompUsage implements Comparator<PhtNode> {
+    public static class PhtNodeCompUsage implements Comparator<PhtNodeInfo> {
         @Override
-        public int compare(PhtNode phtNode, PhtNode t1) {
+        public int compare(PhtNodeInfo phtNode, PhtNodeInfo t1) {
 
             // Avoid any possible error due to a long to int cast
             if (phtNode.getUsage() < t1.getUsage()) {
@@ -178,9 +182,9 @@ class PhtNodeStats {
                  * phtNode < t1 ? (if)
                  * phtNode > t1 ? (else if)
                  */
-                if (PhtUtil.infTo(t1, phtNode)) {
+                if (PhtUtil.infTo(t1.getLabel(), phtNode.getLabel())) {
                     return -1;
-                } else if (PhtUtil.supTo(t1, phtNode)) {
+                } else if (PhtUtil.supTo(t1.getLabel(), phtNode.getLabel())) {
                     return 1;
                 } else {
                     return 0;
@@ -196,9 +200,9 @@ class PhtNodeStats {
      * Sort PhtNode by number of keys. If to number of keys are equal, sort
      * by usage.
      */
-    public static class PhtNodeCompKeys implements Comparator<PhtNode> {
+    public static class PhtNodeCompKeys implements Comparator<PhtNodeInfo> {
         @Override
-        public int compare(PhtNode phtNode, PhtNode t1) {
+        public int compare(PhtNodeInfo phtNode, PhtNodeInfo t1) {
 
             // Avoid any possible error due to a long to int cast
             if (phtNode.getNbKeys() < t1.getNbKeys()) {
@@ -213,9 +217,9 @@ class PhtNodeStats {
                      * phtNode < t1 ? (if)
                      * phtNode > t1 ? (else if)
                      */
-                    if (PhtUtil.infTo(t1, phtNode)) {
+                    if (PhtUtil.infTo(t1.getLabel(), phtNode.getLabel())) {
                         return -1;
-                    } else if (PhtUtil.supTo(t1, phtNode)) {
+                    } else if (PhtUtil.supTo(t1.getLabel(), phtNode.getLabel())) {
                         return 1;
                     } else {
                         return 0;
