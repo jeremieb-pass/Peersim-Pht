@@ -15,7 +15,7 @@ class PhtNodeStats {
     /*
      * Tree with all the PhtNodes in the network
      */
-    private TreeSet<PhtNodeInfo> pn;
+    private ArrayList<PhtNodeInfo> pn;
 
     /*
      * Trees with all the PhtNode leaves, the leaves with less than
@@ -23,8 +23,8 @@ class PhtNodeStats {
      *
      * SORTED BY NUMBER OF KEYS
      */
-    private TreeSet<PhtNodeInfo> kpnLeavesBinf;
-    private TreeSet<PhtNodeInfo> kpnLeavesBsup;
+    private ArrayList<PhtNodeInfo> kpnLeavesBinf;
+    private ArrayList<PhtNodeInfo> kpnLeavesBsup;
 
     // Number of keys
     private int nbKeysBinf;
@@ -37,9 +37,9 @@ class PhtNodeStats {
     private PhtNode maxKeysBsup;
 
     public PhtNodeStats() {
-        this.pn            = new TreeSet<PhtNodeInfo>(new PhtNodeCompUsage());
-        this.kpnLeavesBinf = new TreeSet<PhtNodeInfo>(new PhtNodeCompKeys());
-        this.kpnLeavesBsup = new TreeSet<PhtNodeInfo>(new PhtNodeCompKeys());
+        this.pn            = new ArrayList<PhtNodeInfo>();
+        this.kpnLeavesBinf = new ArrayList<PhtNodeInfo>();
+        this.kpnLeavesBsup = new ArrayList<PhtNodeInfo>();
     }
 
     /**
@@ -98,19 +98,31 @@ class PhtNodeStats {
         this.pn.add(pni);
     }
 
+    /* ___________________                                ___________________ */
+    /* ___________________ Sort by number of keys / usage ___________________ */
+
     /**
      * Retrieve the nb upper nodes in the given TreeSet.
+     * The 'set' is sorted: do not use this method more than once on the
+     * same set (it would be expansive).
      * @param set Source list
+     * @param comparator for sorting
      * @param nb maximum of PhtNode to return
      * @return list of nb (at most) PhtNode
      * keys in the TreeSet set.
      */
-    private List<PhtNodeInfo> mostPN (TreeSet<PhtNodeInfo> set, int nb) {
+    private List<PhtNodeInfo> mostPN (List<PhtNodeInfo> set, Comparator<PhtNodeInfo> comparator, int nb) {
         List<PhtNodeInfo> mukpn = new LinkedList<PhtNodeInfo>();
 
-        Iterator<PhtNodeInfo> pnIt = set.descendingIterator();
-        for (int i = 0; (i < nb) && (pnIt.hasNext()); i++) {
-            PhtNodeInfo pni = pnIt.next();
+        if (set.isEmpty()) {
+            return mukpn;
+        }
+
+        set.sort(comparator);
+        for (int i = 0; i < nb; i++) {
+            PhtNodeInfo pni;
+
+            pni = set.get( set.size()-i-1 );
             
             if (pn != null) {
                 mukpn.add(pni);
@@ -120,6 +132,14 @@ class PhtNodeStats {
         return mukpn;
     }
 
+    /* _______________________________        _______________________________ */
+    /* _______________________________ Height _______________________________ */
+
+    /**
+     * Print every information on the PhtNodes.
+     * @param mu Maximum number of PhtNodes to print each time many could
+     *           be.
+     */
     public void printAll (int mu) {
         int nbLeavesBinf = this.kpnLeavesBinf.size();
         int nbLeavesBsup = this.kpnLeavesBsup.size();
@@ -127,21 +147,21 @@ class PhtNodeStats {
 
         System.out.printf("Number of PhtNodes: %d (%d leaves)\n%d most used PhtNodes\n",
                 this.pn.size(), nbLeaves, mu);
-        for (PhtNodeInfo ndi: mostPN(this.pn, mu)) {
+        for (PhtNodeInfo ndi: mostPN(this.pn, new PhtNodeCompUsage(), mu)) {
             System.out.printf("\t[%s] used %d times (%d times as destination)\n",
                     ndi.getLabel(), ndi.getUsage(), ndi.getUsageDest());
         }
 
         System.out.printf("\nNumber of leaves with less than %d keys: %d\n",
                 PhtProtocol.B, nbLeavesBinf);
-        for (PhtNodeInfo ndi: mostPN(this.kpnLeavesBinf, mu)) {
+        for (PhtNodeInfo ndi: mostPN(this.kpnLeavesBinf, new PhtNodeCompKeys(), mu)) {
             System.out.printf("\t[%s] %d keys, used %d times\n",
                     ndi.getLabel(), ndi.getNbKeys(), ndi.getUsage());
         }
 
         System.out.printf("\nNumber of leaves with more than %d keys: %d\n",
                 PhtProtocol.B, nbLeavesBsup);
-        for (PhtNodeInfo ndi: mostPN(this.kpnLeavesBsup, mu)) {
+        for (PhtNodeInfo ndi: mostPN(this.kpnLeavesBsup, new PhtNodeCompKeys(), mu)) {
             System.out.printf("\t[%s] %d keys, used %d times\n",
                     ndi.getLabel(), ndi.getNbKeys(), ndi.getUsage());
         }
