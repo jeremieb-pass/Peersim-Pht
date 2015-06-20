@@ -24,7 +24,7 @@ import java.util.Stack;
 public class Stats {
     private static Stats stats;
 
-    private Stack<PhaseStats> ps;
+    private LinkedList<PhaseStats> ps;
     private PhaseStats curr;
 
     // Number of operations triggered during the simulation.
@@ -34,9 +34,9 @@ public class Stats {
     private int nbPhases;
 
     private Stats() {
-        this.ps = new Stack<PhaseStats>();
-        this.ps.add(new PhaseStats());
-        this.curr = this.ps.peek();
+        this.ps = new LinkedList<PhaseStats>();
+        this.ps.addFirst(new PhaseStats());
+        this.curr = this.ps.peekLast();
     }
 
     public synchronized static Stats getInstance() {
@@ -60,7 +60,22 @@ public class Stats {
      * Add a new phase for new statistics.
      */
     public void newPhase() {
-        this.ps.push(new PhaseStats());
-        this.curr = this.ps.peek();
+        this.ps.addLast(new PhaseStats());
+        this.curr = this.ps.peekLast();
+    }
+
+    public void printAll() {
+        int i = 0;
+
+        System.out.println(AsciiStats.phtSimulation);
+
+        for (PhaseStats pst: this.ps) {
+            System.out.println(AsciiStats.newPhase);
+            System.out.printf("-------------------- Phase: %d --------------------\n", i);
+            pst.printAll();
+            i++;
+        }
+
+        System.out.println(AsciiStats.toBoldlyGo);
     }
 }
