@@ -68,6 +68,13 @@ public class MSPClient implements Control, Client {
             System.out.printf("[MSPClient] nextOp: %d\n", nextOp);
             PhtUtil.checkTrie(kdata, inserted, removed);
             PhtUtil.allKeys(inserted);
+
+            if (nextOp == 3) {
+                Stats st = Stats.getInstance();
+
+                st.curr().start();
+                st.printAll();
+            }
         }
 
         data = kdata.get(next);
@@ -119,8 +126,9 @@ public class MSPClient implements Control, Client {
 
                 Stats st = Stats.getInstance();
 
-                st.curr().addNetwork();
-                st.curr().printAll();
+                st.newPhase();
+                st.curr().start();
+                st.printAll();
                 return true;
         }
 

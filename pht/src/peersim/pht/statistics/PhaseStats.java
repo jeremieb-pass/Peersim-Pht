@@ -75,11 +75,6 @@ public class PhaseStats {
         this.rqStats     = RQueryStats.getInstance();
     }
 
-    /* _________________________                    _________________________ */
-    /* _________________________ PhtNode statistics _________________________ */
-
-
-
     /* ________________________                        ______________________ */
     /* ________________________ Add PhtNodes and Nodes ______________________ */
 
@@ -88,7 +83,7 @@ public class PhaseStats {
      * This method should be call and the end of the simulation to get all
      * the information before making the statistics
      */
-    public void addNetwork () {
+    public void start() {
         int phtid = PhtProtocol.getPid();
 
         for (int i = 0; i < Network.size(); i++) {
@@ -289,7 +284,7 @@ public class PhaseStats {
     /* ________________________________       _______________________________ */
     /* ________________________________ Print _______________________________ */
 
-    public void printAll() {
+    protected void printAll() {
         final int mu = 10;
 
         if (this.nStats == null) {
@@ -297,32 +292,30 @@ public class PhaseStats {
         }
 
         // PhtNodes
-        System.out.printf("\n---------- PhtNode statistics ---------- \n\n");
+        System.out.println(AsciiStats.phtNode);
         this.pnStats.printAll(mu);
 
         // Nodes
-        System.out.printf("\n---------- Node statistics ------------- \n\n");
+        System.out.println(AsciiStats.node);
         this.nStats.printAll(mu);
 
         // Range queries
-        System.out.printf("\n---------- Range queries statistics ------------- \n\n");
+        System.out.println(AsciiStats.rQueries);
         this.rqStats.printAll();
 
         // Insert
-        System.out.printf("\n---------- Insertion statistics ------------- \n\n");
+        System.out.println(AsciiStats.insertDelete);
         System.out.printf("%d insert\n", this.insertCount);
 
         // Delete
-        System.out.printf("\n---------- Deletion statistics ------------- \n\n");
         System.out.printf("%d deletion\n", this.deleteCount);
 
         // Splits
-        System.out.printf("\n---------- Splits statistics ------------- \n\n");
+        System.out.println(AsciiStats.splitMerge);
         System.out.printf("Number of splits: %d <> %d times a cascading of splits " +
                 "been avoided\n", this.splitCount, this.splitAvoided);
 
         // Merge
-        System.out.printf("\n---------- Merges statistics ------------- \n\n");
         System.out.printf("Number of merges: %d <> %d times a cascading of merges " +
                 "been avoided\n", this.mergeCount, this.mergeAvoided);
 
