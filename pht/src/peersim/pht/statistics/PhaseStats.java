@@ -31,9 +31,16 @@ import java.util.*;
  * </p>
  */
 public class PhaseStats {
+
+    /* ---------- Statistics on Node, PhtNode and Range queries ---------- */
+
     private NodeStats nStats;
     private PhtNodeStats pnStats;
     private RQueryStats rqStats;
+
+    /* ---------- Did the phase start ? ---------- */
+
+    private boolean started = false;
 
     /* ---------- Operations counters ---------- */
 
@@ -65,14 +72,16 @@ public class PhaseStats {
      * How many avoided due to choices made (one split by insertion max,
      * one merge by delete max).
      */
-    private long splitAvoided;
-    private long mergeAvoided;
+    private long splitAvoidedCount;
+    private long mergeAvoidedCount;
 
+    private HashMap<Long, Boolean> mergeAvoided;
 
     protected PhaseStats() {
-        this.nStats      = new NodeStats();
-        this.pnStats     = new PhtNodeStats();
-        this.rqStats     = RQueryStats.getInstance();
+        this.nStats       = new NodeStats();
+        this.pnStats      = new PhtNodeStats();
+        this.rqStats      = new RQueryStats();
+        this.mergeAvoided = new HashMap<Long, Boolean>();
     }
 
     /* ________________________                        ______________________ */
@@ -84,18 +93,42 @@ public class PhaseStats {
      * the information before making the statistics
      */
     public void start() {
+        if (this.started) {
+            return;
+        }
+
         int phtid = PhtProtocol.getPid();
 
         for (int i = 0; i < Network.size(); i++) {
+            boolean hasRoot = false;
+            int nbLeaves = 0;
             PhtProtocol prot;
 
             prot = (PhtProtocol) Network.get(i).getProtocol(phtid);
-            this.nStats.addN( prot.getId(), prot.getUsage(), prot.getUsageDest() );
+
+            for (PhtNode nd: prot.getNodes().values()) {
+                if (nd.isLeaf()) {
+                    nbLeaves++;
+                } else if (nd.getLabel().equals("")) {
+                    hasRoot = true;
+                }
+            }
+
+            this.nStats.addN(
+                    prot.getId(),
+                    prot.getUsage(),
+                    prot.getUsageDest(),
+                    prot.getNbNodes(),
+                    nbLeaves,
+                    hasRoot
+            );
 
             for (PhtNode nd: prot.getNodes().values()) {
                 this.pnStats.addPN(nd, nd.isLeaf());
             }
         }
+
+        this.started = true;
     }
 
     /* _________________________                   __________________________ */
@@ -260,7 +293,7 @@ public class PhaseStats {
      * choices made (no more than one split per insertion).
      */
     public void incSplitAvoid () {
-        this.splitAvoided++;
+        this.splitAvoidedCount++;
     }
 
     /* __________________________                  __________________________ */
@@ -277,8 +310,19 @@ public class PhaseStats {
      * Increment by one the number of merge that has been avoided due to the
      * choices made (no more than one merge per deletion).
      */
-    public void incMergeAvoid () {
-        this.mergeAvoided++;
+    public void incMergeAvoid (long id) {
+        if (this.mergeAvoided.get(id) == null) {
+            this.mergeAvoided.put(id, true);
+            this.mergeAvoidedCount++;
+        }
+    }
+
+
+    /* ___________________________                ___________________________ */
+    /* ___________________________ Getter methods ___________________________ */
+
+    public boolean hasStarted () {
+        return this.started;
     }
 
     /* ________________________________       _______________________________ */
@@ -313,11 +357,11 @@ public class PhaseStats {
         // Splits
         System.out.println(AsciiStats.splitMerge);
         System.out.printf("Number of splits: %d <> %d times a cascading of splits " +
-                "been avoided\n", this.splitCount, this.splitAvoided);
+                "has been avoided\n", this.splitCount, this.splitAvoidedCount);
 
         // Merge
         System.out.printf("Number of merges: %d <> %d times a cascading of merges " +
-                "been avoided\n", this.mergeCount, this.mergeAvoided);
+                "has been avoided\n", this.mergeCount, this.mergeAvoidedCount);
 
     }
 }

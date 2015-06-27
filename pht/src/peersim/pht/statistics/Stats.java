@@ -30,9 +30,6 @@ public class Stats {
     // Number of operations triggered during the simulation.
     private long opCount;
 
-    // Number of phases.
-    private int nbPhases;
-
     private Stats() {
         this.ps = new LinkedList<PhaseStats>();
         this.ps.addFirst(new PhaseStats());
@@ -62,6 +59,20 @@ public class Stats {
     public void newPhase() {
         this.ps.addLast(new PhaseStats());
         this.curr = this.ps.peekLast();
+    }
+
+    public int getNbPhases () {
+        return this.ps.size();
+    }
+
+    /**
+     * Remove last phase.
+     * Usefull when you add a new phase after each computing: at the end of
+     * the simulation, there will be an empty phase (which will be uselessly
+     * printed)
+     */
+    public void removeLast () {
+        this.ps.removeLast();
     }
 
     public void printAll() {

@@ -16,7 +16,6 @@ import java.util.*;
  * </ul>
  */
 class RQueryStats {
-    private static RQueryStats rqst;
 
     /*
      * Sequential queries sorted by count.
@@ -40,17 +39,9 @@ class RQueryStats {
     private long seqCount;
     private long parCount;
 
-    private RQueryStats() {
+    protected RQueryStats() {
         this.seqh = new TreeSet<PMRQueryHolder>();
         this.parh = new TreeSet<PMRQueryHolder>();
-    }
-
-    public static synchronized RQueryStats getInstance () {
-        if (rqst == null) {
-            rqst = new RQueryStats();
-        }
-
-        return rqst;
     }
 
     /* _______________________                        _______________________ */
@@ -213,6 +204,7 @@ class RQueryStats {
                 this.parCount);
 
         // Sequential queries
+        System.out.printf("\n---------- Sequential range queries ----------\n");
         System.out.printf("\n%d minimum sequential queries (number of PhtNodes involded)\n",
                 this.seqCountOp < nb ? 0 : nb);
         for (PMRQueryHolder seqh: minRQueries(this.seqh, nb)) {
@@ -227,6 +219,7 @@ class RQueryStats {
         }
 
         // Parallel queries
+        System.out.printf("\n---------- Parallel range queries ----------\n");
         System.out.printf("\n%d minimum parallel queries (number of PhtNodes involded)\n",
                 this.parCountOp < nb ? 0 : nb);
         for (PMRQueryHolder parh: maxRQueries(this.parh, nb)) {
