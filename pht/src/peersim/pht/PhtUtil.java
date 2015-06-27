@@ -65,73 +65,66 @@ public class PhtUtil {
     /**
      * Is key strictly inferior to min ? First character strictly inferior to
      * min's one means true.
-     * @param min Current minimum key
      * @param key Key to test
+     * @param min Current minimum key
      * @return key < min
      */
-    public static boolean infTo (String min, String key) {
-        if (min == null) {
+    public static boolean infTo (String key, String min) {
+        if (key == null) {
             return true;
-        } else if (key == null) {
+        } else if (min == null) {
             return false;
         }
 
-        int minLen = min.length() < key.length() ? min.length() : key.length();
+        int minLen;
+
+        minLen = min.length() < key.length() ? min.length() : key.length();
         for (int i = 0; i < minLen; i++) {
             if (key.charAt(i) < min.charAt(i)) {
                 return true;
             }
         }
 
-        return false;
-    }
+        if (key.length() > min.length()) {
+            return key.charAt(minLen) == '0';
+        } else if (min.length() > key.length()) {
+            return min.charAt(minLen) == '1';
+        }
 
-    /**
-     * Is key strictly inferior to min ? First character strictly inferior to
-     * min's one means true. Call to infTo(String, String).
-     * @param min Current minimum key
-     * @param key Key to test
-     * @return key < min
-     */
-    public static boolean infTo (PhtNode min, PhtNode key) {
-        return infTo(min.getLabel(), key.getLabel());
+        return false;
     }
 
     /**
      * Is key strictly superior to min ? First character strictly superior to
      * min's one means true.
-     * @param max Current maximum key
      * @param key Key to test
+     * @param max Current maximum key
      * @return key > max
      */
-    public static boolean supTo (String max, String key) {
-        if (max == null) {
-            return true;
-        } else if (key == null) {
+    public static boolean supTo (String key, String max) {
+        if (key == null) {
             return false;
+        } else if (max == null) {
+            return true;
         }
 
-        int maxLen = max.length() < key.length() ? max.length() : key.length();
-        for (int i = 0; i < maxLen; i++) {
+        int minLen;
+
+        minLen = max.length() < key.length() ? max.length() : key.length();
+        for (int i = 0; i < minLen; i++) {
             if (key.charAt(i) > max.charAt(i)) {
                 return true;
             }
         }
 
+        if (key.length() > max.length()) {
+            return key.charAt(minLen) == '1';
+        } else if (max.length() > key.length()) {
+            return max.charAt(minLen) == '0';
+        }
+
         return false;
     }
-
-    /**
-     * Is key strictly superior to min ? First character strictly superior to
-     * min's one means true. Call to supTo(String,String).
-     * @param max Current maximum key
-     * @param key Key to test
-     * @return key > max
-     */
-    public static boolean supTo (PhtNode max, PhtNode key) {
-        return supTo(max.getLabel(), key.getLabel());
-    }
-
 
     public static boolean inRangeMax (String s1, String s2) {
         int max;
