@@ -1241,7 +1241,7 @@ public class PhtProtocol implements EDProtocol {
                 MSPClient.release();
             }
         } else if (!ok && (update < 0) && (father.getNbKeys() < PhtProtocol.B+1)) {
-            stats.curr().incMergeAvoid();
+            stats.curr().incMergeAvoid(message.getId());
         }
 
         if (! father.getLabel().equals("")) {
@@ -2769,6 +2769,10 @@ public class PhtProtocol implements EDProtocol {
 
     public long getId() {
         return this.nid;
+    }
+
+    public int getNbNodes () {
+        return this.nodes.size();
     }
 
    /* ___________________________                ___________________________ */
