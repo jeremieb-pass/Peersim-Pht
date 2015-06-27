@@ -62,7 +62,7 @@ class PhtNodeStats {
     private static final int HEIGHT_SIZE = 4;
     private static final int ZKEYS_SIZE  = 5;
 
-    public PhtNodeStats() {
+    protected PhtNodeStats() {
         this.pn            = new ArrayList<PhtNodeInfo>();
         this.kpnLeavesBinf = new ArrayList<PhtNodeInfo>();
         this.kpnLeavesBsup = new ArrayList<PhtNodeInfo>();
@@ -77,26 +77,7 @@ class PhtNodeStats {
                 if (pni.getNbKeys() < t1.getNbKeys()) {
                     return -1;
                 } else if (pni.getNbKeys() == t1.getNbKeys()) {
-
-                    if (pni.getUsage() < t1.getUsage()) {
-                        return -1;
-                    } else if (pni.getUsage() == t1.getUsage()) {
-
-                        /*
-                         * pni < t1 ? (if)
-                         * pni > t1 ? (else if)
-                         */
-                        if (PhtUtil.infTo(t1.getLabel(), pni.getLabel())) {
-                            return -1;
-                        } else if (PhtUtil.supTo(t1.getLabel(), pni.getLabel())) {
-                            return 1;
-                        } else {
-                            return 0;
-                        }
-
-                    } else {
-                        return 1;
-                    }
+                        return 0;
                 } else {
                     return 1;
                 }
@@ -112,23 +93,12 @@ class PhtNodeStats {
                 if (pni.getUsage() < t1.getUsage()) {
                     return -1;
                 } else if (pni.getUsage() == t1.getUsage()) {
-
-                    /*
-                     * pni < t1 ? (if)
-                     * pni > t1 ? (else if)
-                     */
-                    if (PhtUtil.infTo(t1.getLabel(), pni.getLabel())) {
-                        return -1;
-                    } else if (PhtUtil.supTo(t1.getLabel(), pni.getLabel())) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-
+                    return 0;
                 } else {
                     return 1;
                 }
             }
+
         };
 
         // Sort by label length. If they are equal, sort by label.
@@ -138,19 +108,7 @@ class PhtNodeStats {
                 if (pni.getLabel().length() != t1.getLabel().length()) {
                     return pni.getLabel().length() - t1.getLabel().length();
                 } else {
-
-                    /*
-                     * pni < t1 ? (if)
-                     * pni > t1 ? (else if)
-                     */
-                    if (PhtUtil.infTo(t1.getLabel(), pni.getLabel())) {
-                        return -1;
-                    } else if (PhtUtil.supTo(t1.getLabel(), pni.getLabel())) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-
+                    return 0;
                 }
             }
         };
@@ -275,6 +233,11 @@ class PhtNodeStats {
             sortAll();
         }
 
+        if (this.pn.size() == 0) {
+            ha[MIN] = ha[MAX] = ha[AVG] = ha[MED] = 0;
+            return ha;
+        }
+
         pnil.sort( compHeight );
 
         // Min and max
@@ -304,16 +267,21 @@ class PhtNodeStats {
     /* __________________________                 ___________________________ */
     /* __________________________ 0 Keys PhtNodes ___________________________ */
 
-    private int[] zeroKeysLeaves () {
+    private float[] zeroKeysLeaves () {
         int min;    // Minimum height
         int max;    // Maximum height
         int tot;    // Total heights (for average)
         int minIdx; // Number of leaves
-        int[] zkl = new int[ZKEYS_SIZE];
+        float[] zkl = new float[ZKEYS_SIZE];
         List<PhtNodeInfo> zkPni = new LinkedList<PhtNodeInfo>();
 
         if (! this.sorted) {
             sortAll();
+        }
+
+        if ( (this.kpnLeavesBinf.size() + this.kpnLeavesBsup.size()) == 0 ) {
+            zkl[MIN] = zkl[AVG] = zkl[MAX] = zkl[TOT] = 0;
+            return zkl;
         }
 
         zkPni.addAll( this.kpnLeavesBinf );
@@ -340,7 +308,7 @@ class PhtNodeStats {
         }
 
         zkl[MIN] = min;
-        zkl[AVG] = tot / minIdx;
+        zkl[AVG] = (float) tot / (float) minIdx;
         zkl[MAX] = max;
         zkl[TOT] = minIdx;
 
@@ -360,7 +328,7 @@ class PhtNodeStats {
         /* ---------- Usage ---------- */
 
         System.out.printf("Number of PhtNodes: %d (%d leaves)\n\n%d most used PhtNodes\n",
-                this.pn.size(), nbLeaves, mu);
+                this.pn.size(), nbLeaves, mu > this.pn.size() ?  this.pn.size(): mu);
         for (PhtNodeInfo ndi: mostPN(this.pn, mu)) {
             System.out.printf("\t[%s] used %d times (%d times as destination)\n",
                     ndi.getLabel(), ndi.getUsage(), ndi.getUsageDest());
@@ -400,10 +368,10 @@ class PhtNodeStats {
         }
 
         /* ---------- Zero key leaves ---------- */
-        int[] zkl = zeroKeysLeaves();
+        float[] zkl = zeroKeysLeaves();
         System.out.println("\n---------- Zero key leaves ----------");
-        System.out.printf("\nMin, avg, max heights of leaves with zero keys: %d, %d, %d\n" +
-                        "Total number of keys with zero keys: %d\n",
+        System.out.printf("\nMin, avg, max heights of leaves with zero keys: %.1f, %.1f, %.1f\n" +
+                        "Total number of keys with zero keys: %.1f\n",
                 zkl[MIN], zkl[AVG], zkl[MAX], zkl[TOT]);
 
         /* ---------- Heights ---------- */
