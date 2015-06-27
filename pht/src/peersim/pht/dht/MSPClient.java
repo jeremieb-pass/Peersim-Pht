@@ -10,9 +10,14 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * MSPClient is a basic client for a simulation using MSPastry.
- * It contains keys and data to insert, search or remove. By default it will
- * start every request from the same Node the bootstrap.
+ * <p>
+ *     MSPClient is a basic client for a simulation using MSPastry.
+ *     It contains keys and data to insert, search or remove.
+ * </p>
+ * <p>
+ *     This is just an example: insert random keys, suppress some (all) of
+ *     them and make a few range queries and statistics.
+ * </p>
  */
 public class MSPClient implements Control, Client {
 
@@ -69,12 +74,11 @@ public class MSPClient implements Control, Client {
             PhtUtil.checkTrie(kdata, inserted, removed);
             PhtUtil.allKeys(inserted);
 
-            if (nextOp == 3) {
-                Stats st = Stats.getInstance();
+            // Statistics
+            Stats st = Stats.getInstance();
 
-                st.curr().start();
-                st.printAll();
-            }
+            st.curr().start();
+            st.newPhase();
         }
 
         data = kdata.get(next);
@@ -126,8 +130,7 @@ public class MSPClient implements Control, Client {
 
                 Stats st = Stats.getInstance();
 
-                st.newPhase();
-                st.curr().start();
+                st.removeLast();
                 st.printAll();
                 return true;
         }
