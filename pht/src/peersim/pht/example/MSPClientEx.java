@@ -1,9 +1,12 @@
-package peersim.pht.dht;
+package peersim.pht.example;
 
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
-import peersim.pht.*;
+import peersim.pht.Client;
+import peersim.pht.PhtData;
+import peersim.pht.PhtProtocol;
+import peersim.pht.PhtUtil;
 import peersim.pht.statistics.Stats;
 
 import java.util.LinkedList;
@@ -19,7 +22,7 @@ import java.util.List;
  *     them and make a few range queries and statistics.
  * </p>
  */
-public class MSPClient implements Control, Client {
+public class MSPClientEx implements Control, Client {
 
     private static boolean exe = false;
 
@@ -31,7 +34,7 @@ public class MSPClient implements Control, Client {
 
     private static int nextOp = 0;
 
-    public MSPClient(String prefix) {
+    public MSPClientEx(String prefix) {
         int phtid     = Configuration.getPid(prefix + ".phtid");
         int len       = Configuration.getInt(prefix + ".len");
         int maxKeys   = Configuration.getInt(prefix + ".max");
@@ -71,8 +74,11 @@ public class MSPClient implements Control, Client {
             next = 0;
             nextOp++;
             System.out.printf("[MSPClient] nextOp: %d\n", nextOp);
-            PhtUtil.checkTrie(kdata, inserted, removed);
-            PhtUtil.allKeys(inserted);
+
+            if (nextOp == 3) {
+                PhtUtil.checkTrie(kdata, inserted, removed);
+                PhtUtil.allKeys(inserted);
+            }
 
             // Statistics
             Stats st = Stats.getInstance();
@@ -88,7 +94,7 @@ public class MSPClient implements Control, Client {
                 System.out.printf("|| MSPClient || key: '%s'\n", data.getKey());
                 if ( this.pht.insertion( data.getKey(), data.getData(), this) >= 0) {
                     lock();
-                    System.out.printf("[MSPClient] insertion\n");
+                    System.out.printf("::MSPClient:: insertion\n");
                     inserted.add(kdata.get(next).getKey());
                     next++;
                 }
@@ -97,7 +103,7 @@ public class MSPClient implements Control, Client {
             case 1:
                 if (this.pht.query(data.getKey(), this) >= 0) {
                     lock();
-                    System.out.printf("[MSPClient] query\n");
+                    System.out.printf("::MSPClient:: query\n");
                     next++;
                 }
                 break;
@@ -118,7 +124,7 @@ public class MSPClient implements Control, Client {
                         kdata.get(kdata.size()-1).getKey(),
                         this) >= 0) {
                     lock();
-                    System.out.printf("[MSPClient] rangeQuery '%s' to '%s'\n",
+                    System.out.printf("::MSPClient:: rangeQuery '%s' to '%s'\n",
                             kdata.get(next).getKey(),
                             kdata.get(kdata.size()-1).getKey());
                     next += kdata.size() / 4;
@@ -144,6 +150,10 @@ public class MSPClient implements Control, Client {
 
     public static void release() {
         exe = true;
+    }
+
+    public static void retry (long id) {
+
     }
 
     @Override

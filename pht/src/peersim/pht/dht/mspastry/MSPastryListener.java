@@ -1,4 +1,4 @@
-package peersim.pht.dht;
+package peersim.pht.dht.mspastry;
 
 import peersim.config.Configuration;
 import peersim.core.Node;

@@ -1,10 +1,12 @@
-package peersim.pht.dht;
+package peersim.pht.dht.mspastry;
 
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
 import peersim.pastry.MSPastryProtocol;
 import peersim.pht.PhtProtocol;
+import peersim.pht.dht.mspastry.MSPastryListener;
+import peersim.pht.dht.mspastry.MSPastry;
 
 public class MSPInit implements Control{
     private final int mspid;
@@ -30,7 +32,7 @@ public class MSPInit implements Control{
 
         for (int i = 0; i < Network.size(); i++) {
             msprot = ((MSPastryProtocol)Network.get(i).getProtocol(this.mspid));
-            dht    = ((MSPastry)Network.get(i).getProtocol(this.dhtid));
+            dht    = ((peersim.pht.dht.mspastry.MSPastry)Network.get(i).getProtocol(this.dhtid));
             prot   = ((PhtProtocol)Network.get(i).getProtocol(this.phtid));
             lst    = ((MSPastryListener)Network.get(i).getProtocol(this.lstid));
 
