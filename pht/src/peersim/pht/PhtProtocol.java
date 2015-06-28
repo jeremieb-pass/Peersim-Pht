@@ -5,14 +5,16 @@ import peersim.core.Network;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.pht.dht.DhtInterface;
-import peersim.pht.dht.MSPClient;
-import peersim.pht.dht.MSPastryListener;
+import peersim.pht.dht.mspastry.MSPClient;
+import peersim.pht.dht.mspastry.MSPastryListener;
 import peersim.pht.exceptions.*;
 //import peersim.pht.tests.EDSimulator;
 import peersim.edsim.EDSimulator;
 import peersim.pht.messages.*;
 import peersim.pht.statistics.Stats;
 
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
@@ -33,7 +35,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class PhtProtocol implements EDProtocol {
 
-    /* Protocol constants
+    /*
+     * Protocol constants
      * D: Size of a key in bits
      * B: Maximum number of keys that a leaf should handle
      * MAX: Maximum number of clients with pending requests
@@ -61,6 +64,9 @@ public class PhtProtocol implements EDProtocol {
     private static StringBuffer logBuf;
     private static FileWriter logFile;
 
+    private static BufferedWriter logWriter;
+    private static FileWriter fw;
+
     /* __________ Statistics __________ */
 
     // Global statistics
@@ -79,6 +85,11 @@ public class PhtProtocol implements EDProtocol {
 
     private static boolean init = false;
     private static long nextId  = 0;
+    
+    /* __________ Delay for messages __________ */
+    
+    private static short MAX_DELAY;
+    private static short delay = 0;
 
     /* __________ General information __________ */
 
@@ -104,7 +115,9 @@ public class PhtProtocol implements EDProtocol {
 
         PhtProtocol.B = Configuration.getInt(prefix + "." + "B");
         PhtProtocol.D = Configuration.getInt(prefix + "." + "D");
-
+        
+        // Maximum delay for messages
+        MAX_DELAY = (short) Configuration.getInt(prefix + ".maxdelay");
 
         // Lookup
         currentLookup = PhtMessage.LIN_LOOKUP;
@@ -121,11 +134,18 @@ public class PhtProtocol implements EDProtocol {
         this.nodes      = new ConcurrentHashMap<String, PhtNode>();
         this.clients    = new TreeMap<Long, Client>();
 
+        // Logs
         logOk = logValue.equals("on");
         if (logOk) {
-            logCount = 0;
-            logBuf   = new StringBuffer(10);
-            logFile  = new FileWriter("phtprotocol.log", false);
+            File old  = new File("phtprotocol.log.old");
+            File path = new File("phtprotocol.log");
+
+            if ( path.exists() ) {
+                path.renameTo(old);
+            }
+
+            fw = new FileWriter("phtprotocol.log", false);
+            logWriter = new BufferedWriter(fw);
         }
     }
 
@@ -377,7 +397,8 @@ public class PhtProtocol implements EDProtocol {
             stats.curr().incMerge();
         }
 
-        EDSimulator.add(0, message, son.getNode(), phtid);
+        
+        EDSimulator.add(delay(), message, son.getNode(), phtid);
     }
 
     /**
@@ -407,7 +428,22 @@ public class PhtProtocol implements EDProtocol {
             log("@@@@@ father null in sendMerge @@@@@");
         }
 
-        EDSimulator.add(0, message, father.getNode(), phtid);
+        
+        EDSimulator.add(delay(), message, father.getNode(), phtid);
+    }
+
+    /**
+     * Inform the initiator that he must try again this operation.
+     * @param initiator Initiator of the operation
+     * @param id Message id
+     * @param label Label of the PhtNode who called this method
+     */
+    private void sendRetry (Node initiator, long id, String label) {
+        PhtMessage message;
+
+        message = new PhtMessage(PhtMessage.RETRY, this.node, label, id, null);
+        
+        EDSimulator.add(delay(), message, initiator, phtid);
     }
 
     /* __________________________                    _________________________ */
@@ -427,10 +463,6 @@ public class PhtProtocol implements EDProtocol {
         NodeInfo next;
         PhtNode node;
 
-//        if (! init) {
-//            initiate();
-//        }
-
         // Get the node
         node = this.nodes.get(pml.getDestLabel());
         if (node == null) {
@@ -445,7 +477,6 @@ public class PhtProtocol implements EDProtocol {
         if (pml.getOperation() == PhtMessage.PAR_QUERY) {
             if ( (node.isLeaf()) || (node.getLabel().equals(pml.getKey())) ) {
                 processParQuery(message, pml);
-                System.out.println("::lin_parquery::");
                 return;
             }
         }
@@ -462,7 +493,9 @@ public class PhtProtocol implements EDProtocol {
             pml.setDest(next.getNode());
             System.out.printf("::linquery next is '%s' on node %d::\n",
                     next.getKey(), next.getNode().getID());
-            EDSimulator.add(0, message, pml.getDest(), phtid);
+
+            
+            EDSimulator.add(delay(), message, pml.getDest(), phtid);
             return;
         }
 
@@ -483,6 +516,16 @@ public class PhtProtocol implements EDProtocol {
         // If it is a leaf, the action depends on the underlying operation
         switch (pml.getOperation()) {
             case PhtMessage.SUPRESSION:
+
+                /*
+                 * If the PhtNode is not in a stable state: send a retry
+                 * message to the initiator.
+                 */
+                if (! node.state.isStable()) {
+                    MSPClient.retry( message.getId() );
+//                    return;
+                }
+
                 message.setMore(node.remove(pml.getKey()));
                 message.setType( PhtMessage.ACK_SUPRESSION );
                 break;
@@ -493,6 +536,16 @@ public class PhtProtocol implements EDProtocol {
                 break;
 
             case PhtMessage.INSERTION:
+
+                /*
+                 * If the PhtNode is not in a stable state: send a retry
+                 * message to the initiator.
+                 */
+                if (! node.state.isStable()) {
+                    MSPClient.retry( message.getId() );
+//                    return;
+                }
+                
                 message.setType(PhtMessage.ACK_LIN_LOOKUP);
                 break;
 
@@ -504,7 +557,8 @@ public class PhtProtocol implements EDProtocol {
         this.usageDest++;
 
         pml.setDest(this.node);
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
     }
 
 
@@ -567,7 +621,8 @@ public class PhtProtocol implements EDProtocol {
 
         // Send the keys and data to the initiator of the request
         message.setType(PhtMessage.ACK_SEQ_QUERY);
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
 
         if (pmrq.isEnd()) {
             System.out.printf("::processSeqQuery:: end '%s' to '%s'\n",
@@ -604,7 +659,8 @@ public class PhtProtocol implements EDProtocol {
         // Forward the request to the next Leaf
         pmlForward.setDestLabel(node.getNextLeaf().getKey());
         forward.setType(pmlForward.getOperation());
-        EDSimulator.add(0, forward, node.getNextLeaf().getNode(), phtid);
+        
+        EDSimulator.add(delay(), forward, node.getNextLeaf().getNode(), phtid);
     }
 
 
@@ -655,7 +711,9 @@ public class PhtProtocol implements EDProtocol {
             pml.setDestLabel(node.getLson().getKey());
             pml.setDest(node.getLson().getNode());
             message.setType(PhtMessage.PAR_QUERY);
-            EDSimulator.add(0, message, pml.getDest(), phtid);
+
+            
+            EDSimulator.add(delay(), message, pml.getDest(), phtid);
 
             // Forward to the right son (copy the messages)
             forwardPmrq = new PMRangeQuery(
@@ -679,7 +737,8 @@ public class PhtProtocol implements EDProtocol {
                     forwardPml
             );
 
-            EDSimulator.add(0, forward, forwardPml.getDest(), phtid);
+            
+            EDSimulator.add(delay(), forward, forwardPml.getDest(), phtid);
             return;
         }
 
@@ -698,7 +757,8 @@ public class PhtProtocol implements EDProtocol {
 
         // Send the keys and data to the initiator of the request
         message.setType(PhtMessage.ACK_PAR_QUERY_CLIENT);
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
+        
 
         node.useDest();
         this.usageDest++;
@@ -725,10 +785,11 @@ public class PhtProtocol implements EDProtocol {
                 pmlAck
         );
 
+        
         if (node.getLabel().equals("")) {
-            EDSimulator.add(0, ack, this.node, phtid);
+            EDSimulator.add(delay(), ack, this.node, phtid);
         } else {
-            EDSimulator.add(0, ack, node.getFather().getNode(), phtid);
+            EDSimulator.add(delay(), ack, node.getFather().getNode(), phtid);
         }
     }
 
@@ -776,7 +837,7 @@ public class PhtProtocol implements EDProtocol {
 
         message.setType(PhtMessage.ACK_INSERTION);
         message.setMore(res);
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
     }
 
 
@@ -832,7 +893,8 @@ public class PhtProtocol implements EDProtocol {
             log("@@@@@ initiator null in processSplit @@@@@");
         }
 
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
     }
 
     /**
@@ -900,7 +962,8 @@ public class PhtProtocol implements EDProtocol {
             log("@@@@@ initiator null in processSplitLeaves @@@@@");
         }
 
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
     }
 
     /**
@@ -965,7 +1028,8 @@ public class PhtProtocol implements EDProtocol {
         }
 
         this.state = PHT_INIT;
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
 
         /*
          * Tell the previous leaf I am his new next leaf, and my next leaf that
@@ -991,7 +1055,8 @@ public class PhtProtocol implements EDProtocol {
 
             pmlUpdate.setLess( new NodeInfo(node.getLabel(), this.node) );
             update.setType(PhtMessage.UPDATE_NEXT_LEAF);
-            EDSimulator.add(0, update, node.getPrevLeaf().getNode(), phtid);
+            EDSimulator.add(delay(), update, node.getPrevLeaf().getNode(), phtid);
+            
         }
         if (node.getNextLeaf().getNode() != null) {
             pmlUpdate = new PMLookup(
@@ -1009,10 +1074,9 @@ public class PhtProtocol implements EDProtocol {
 
             pmlUpdate.setLess(new NodeInfo(node.getLabel(), this.node));
             update.setType(PhtMessage.UPDATE_PREV_LEAF);
-            EDSimulator.add(0, update, node.getNextLeaf().getNode(), phtid);
+            EDSimulator.add(delay(), update, node.getNextLeaf().getNode(), phtid);
+            
         }
-
-//        EDSimulator.add(0, update, update.getInitiator(), this.phtid);
     }
 
 
@@ -1067,7 +1131,8 @@ public class PhtProtocol implements EDProtocol {
          */
         pml.setDest(this.node);
         message.setType(PhtMessage.ACK_MERGE);
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
+        
     }
 
 
@@ -1109,7 +1174,8 @@ public class PhtProtocol implements EDProtocol {
          */
         pml.setLess(leaf);
         message.setType(PhtMessage.ACK_MERGE_LEAVES);
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
+        
     }
 
     private void processMergeData(PhtMessage message, PMLookup pml) throws CantSplitException {
@@ -1140,7 +1206,8 @@ public class PhtProtocol implements EDProtocol {
 //        pml.setDest(this.node);
         pml.setLess(kdata);
         message.setType(PhtMessage.ACK_MERGE_DATA);
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
+        
     }
 
 
@@ -1189,7 +1256,8 @@ public class PhtProtocol implements EDProtocol {
 
         pml.setLess(true);
         message.setType(PhtMessage.ACK_MERGE_DONE);
-        EDSimulator.add(0, message, message.getInitiator(), phtid);
+        EDSimulator.add(delay(), message, message.getInitiator(), phtid);
+        
     }
 
 
@@ -1250,7 +1318,8 @@ public class PhtProtocol implements EDProtocol {
             pml.setDestLabel(father.getFather().getKey());
             message.setInitiatorLabel(father.getLabel());
             message.setInitiator(this.node);
-            EDSimulator.add(0, message, father.getFather().getNode(),phtid);
+            EDSimulator.add(delay(), message, father.getFather().getNode(),phtid);
+            
         }
     }
 
@@ -1365,7 +1434,9 @@ public class PhtProtocol implements EDProtocol {
                 pml.setLess(this.currentData);
 
                 if (this.state != PHT_INSERTION1) {
-                    throw new WrongStateException("processAck_LinLookup " + this.state);
+                    throw new WrongStateException(
+                            String.format("(%d) processAck_LinLookup %d",
+                                    message.getId(), this.state));
                 } else {
                     this.state = PHT_INSERTION2;
                 }
@@ -1373,7 +1444,9 @@ public class PhtProtocol implements EDProtocol {
 
             case PhtMessage.SUPRESSION:
                 if (this.state != PHT_SUPPRESSION) {
-                    throw new WrongStateException("processAck_LinLookup " + this.state);
+                    throw new WrongStateException(
+                            String.format("(%d) processAck_LinLookup %d",
+                                    message.getId(), this.state));
                 } else {
                     this.state = PHT_INIT;
                 }
@@ -1381,7 +1454,9 @@ public class PhtProtocol implements EDProtocol {
 
             case PhtMessage.LIN_LOOKUP:
                 if (this.state != PHT_LOOKUP) {
-                    throw new WrongStateException("processAck_LinLookup " + this.state);
+                    throw new WrongStateException(
+                            String.format("(%d) processAck_LinLookup %d",
+                                    message.getId(), this.state));
                 } else {
                     long id = message.getId();
 
@@ -1412,7 +1487,8 @@ public class PhtProtocol implements EDProtocol {
             log("@@@@@ dest null in processAck_LinLookup @@@@@");
         }
 
-        EDSimulator.add(0, message, pml.getDest(), phtid);
+        
+        EDSimulator.add(delay(), message, pml.getDest(), phtid);
     }
 
     /**
@@ -1526,6 +1602,8 @@ public class PhtProtocol implements EDProtocol {
                 next = new NodeInfo(node.getFather().getKey(), node.getFather().getNode());
             }
 
+            
+
             // Starting leaf
             if ( node.getLabel().equals(pml.getKey()) ) {
                 pml.setLess(storedCount + count);
@@ -1533,14 +1611,14 @@ public class PhtProtocol implements EDProtocol {
                 System.out.printf("\n\nstarting leaf('%s'): count: %d\n\n",
                         node.getLabel(),
                         storedCount + count);
-                EDSimulator.add(0, message, message.getInitiator(), phtid);
+                EDSimulator.add(delay(), message, message.getInitiator(), phtid);
             } else {
                 // ACK to the father
                 pml.setLess(storedCount + count);
                 pml.setDest(next.getNode());
                 pml.setDestLabel(next.getKey());
                 System.out.printf("\n\nACK father: count: %d\n\n", storedCount + count);
-                EDSimulator.add(0, message, node.getFather().getNode(), phtid);
+                EDSimulator.add(delay(), message, node.getFather().getNode(), phtid);
             }
         }
     }
@@ -1889,13 +1967,15 @@ public class PhtProtocol implements EDProtocol {
             PhtMessage storedMessage;
             PMLookup storedPml;
 
-            EDSimulator.add(0, message, pml.getDest(), phtid);
+            
+            EDSimulator.add(delay(), message, pml.getDest(), phtid);
 
             // Restore the message from the first ACK
             storedMessage = node.returnMessage();
             storedPml     = (PMLookup) storedMessage.getMore();
 
-            EDSimulator.add(0, storedMessage, storedPml.getDest(), phtid);
+            
+            EDSimulator.add(delay(), storedMessage, storedPml.getDest(), phtid);
         } else {
             node.storeMessage(message);
         }
@@ -2063,11 +2143,12 @@ public class PhtProtocol implements EDProtocol {
 
             System.out.println("No merge");
 
+            
             message.setType(PhtMessage.NO_MERGE);
             if (pml.getDestLabel().endsWith("0")) {
-                EDSimulator.add(0, message, node.getRson().getNode(), phtid);
+                EDSimulator.add(delay(), message, node.getRson().getNode(), phtid);
             } else {
-                EDSimulator.add(0, message, node.getLson().getNode(), phtid);
+                EDSimulator.add(delay(), message, node.getLson().getNode(), phtid);
             }
 
             return;
@@ -2078,7 +2159,8 @@ public class PhtProtocol implements EDProtocol {
                 message.getInitiatorLabel(), message.getInitiator().getID()));
 
         message.setType(PhtMessage.MERGE_LEAVES);
-        EDSimulator.add(0, message, pml.getDest(), phtid);
+        EDSimulator.add(delay(), message, pml.getDest(), phtid);
+        
     }
 
 
@@ -2135,7 +2217,8 @@ public class PhtProtocol implements EDProtocol {
         pml.setLess(true);
         message.setType(PhtMessage.MERGE_DATA);
 
-        EDSimulator.add(0, message, pml.getDest(), phtid);
+        EDSimulator.add(delay(), message, pml.getDest(), phtid);
+        
     }
 
     /**
@@ -2164,7 +2247,8 @@ public class PhtProtocol implements EDProtocol {
         }
 
         message.setType(PhtMessage.MERGE_DONE);
-        EDSimulator.add(0, message, pml.getDest(), phtid);
+        EDSimulator.add(delay(), message, pml.getDest(), phtid);
+        
     }
 
 
@@ -2336,7 +2420,8 @@ public class PhtProtocol implements EDProtocol {
         );
 
         pmlUpdate.setLess(info);
-        EDSimulator.add(0, update, node.getLson().getNode(), phtid);
+        EDSimulator.add(delay(), update, node.getLson().getNode(), phtid);
+        
     }
 
     /**
@@ -2379,7 +2464,8 @@ public class PhtProtocol implements EDProtocol {
         );
 
         pmlUpdate.setLess(info);
-        EDSimulator.add(0, update, node.getRson().getNode(), phtid);
+        EDSimulator.add(delay(), update, node.getRson().getNode(), phtid);
+        
     }
 
     /**
@@ -2423,7 +2509,8 @@ public class PhtProtocol implements EDProtocol {
         );
 
         pmlUpdate.setLess(info);
-        EDSimulator.add(0, update, dest.getNode(), phtid);
+        EDSimulator.add(delay(), update, dest.getNode(), phtid);
+        
     }
 
     /* _________________________                    _________________________ */
@@ -2556,6 +2643,12 @@ public class PhtProtocol implements EDProtocol {
             cse.printStackTrace();
         } catch (NoDataSplitData ndsde) {
             ndsde.printStackTrace();
+        } catch (java.lang.NullPointerException npe) {
+            try {
+                logWriter.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -2655,6 +2748,12 @@ public class PhtProtocol implements EDProtocol {
             wse.printStackTrace();
         } catch (BadAckException bae) {
             bae.printStackTrace();
+        } catch (java.lang.NullPointerException npe) {
+            try {
+                logWriter.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -2836,8 +2935,30 @@ public class PhtProtocol implements EDProtocol {
         PhtProtocol.init = false;
     }
 
+    /* _________________________________     ________________________________ */
+    /* _________________________________ Log ________________________________ */
 
-    /* ____________________________               ____________________________ */
+    /**
+     * Log every information of every requests
+     * @param info String to write into the log file
+     */
+    public static void log (String info) {
+        try {
+            logWriter.write(info);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /* ________________________________       _______________________________ */
+    /* ________________________________ Delay _______________________________ */
+
+    private short delay() {
+        delay = (short) ((delay + 1) % MAX_DELAY);
+        return 0;
+    }
+
+    /* ____________________________               ___________________________ */
     /* ____________________________ Debug methods ___________________________ */
 
     /**
@@ -2879,32 +3000,6 @@ public class PhtProtocol implements EDProtocol {
             System.out.println("LISTENER "
                     + ((DhtInterface) lst.getNode().getProtocol(phtid - 1)).getNodeId());
             System.out.println("----------");
-        }
-    }
-
-    /**
-     * Log every information of every requests
-     * @param str String to write into the log file
-     */
-    public static void log(String str) {
-        if (! logOk) {
-            return;
-        }
-
-        logBuf.append(str);
-        logCount++;
-
-        if (logCount < 10) {
-            return;
-        } else {
-            logCount = 0;
-        }
-
-        try {
-            logFile.write(logBuf.toString());
-            logBuf = new StringBuffer(10);
-        } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 }
