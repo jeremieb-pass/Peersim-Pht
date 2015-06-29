@@ -75,6 +75,9 @@ public class PhtMessage {
     public static final int ACK_PAR_QUERY_CLIENT    = ACK_PAR_QUERY       + 1;
     public static final int ACK_PAR_QUERY_CLIENT_F  = ACK_PAR_QUERY_CLIENT+ 1;
 
+    /* Retry */
+
+    public static final int RETRY = 2063;
 
     private int type;
     private Node initiator;
