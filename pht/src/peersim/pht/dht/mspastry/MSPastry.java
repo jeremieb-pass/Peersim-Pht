@@ -47,16 +47,6 @@ public class MSPastry implements DhtInterface, EDProtocol {
     }
 
     @Override
-    public Object getNodeId() {
-        return this.msp.nodeId;
-    }
-
-    @Override
-    public Node getNode() {
-        return PhtUtil.nodeIdtoNode(this.msp.nodeId, this.mspId);
-    }
-
-    @Override
     public Object clone() {
         return new MSPastry(prefix);
     }

@@ -1,6 +1,7 @@
 package peersim.pht;
 
 import peersim.config.Configuration;
+import peersim.core.CommonState;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
@@ -2792,7 +2793,7 @@ public class PhtProtocol implements EDProtocol {
         StringBuilder sb = new StringBuilder(this.nodes.size() * PhtProtocol.D);
 
         sb.append("PHT ");
-        sb.append(this.dht.getNodeId());
+        sb.append(this.node.getID());
         sb.append(" ");
         sb.append(this.nodes.size());
         sb.append(" nodes.\n");
@@ -2800,7 +2801,7 @@ public class PhtProtocol implements EDProtocol {
             PhtNode node = nd.getValue();
 
             sb.append("id: ");
-            sb.append(this.dht.getNodeId());
+            sb.append(this.node.getID());
             sb.append(" (");
             sb.append(this.node.getID());
             sb.append(") $ node [label:");
@@ -2891,7 +2892,7 @@ public class PhtProtocol implements EDProtocol {
      */
     public void setDht(DhtInterface dht) {
         this.dht = dht;
-        this.node = this.dht.getNode();
+        this.node = CommonState.getNode();
     }
 
     /**
@@ -2920,7 +2921,7 @@ public class PhtProtocol implements EDProtocol {
 
         PhtProtocol.init = true;
         this.nodes.put("", new PhtNode("", this));
-        log("PHT initiate() on node " + this.dht.getNodeId());
+        log("PHT initiate() on node " + this.node.getID());
 
         System.out.println("PHT initiate");
 
@@ -2993,12 +2994,6 @@ public class PhtProtocol implements EDProtocol {
             System.out.println("PHT " +
                             Network.get(i).getProtocol(phtid).toString()
             );
-            System.out.println("PASTRY "
-                    + ((DhtInterface) Network.get(i).getProtocol(phtid - 1)).getNodeId());
-
-            lst = (MSPastryListener) Network.get(i).getProtocol(phtid+1);
-            System.out.println("LISTENER "
-                    + ((DhtInterface) lst.getNode().getProtocol(phtid - 1)).getNodeId());
             System.out.println("----------");
         }
     }

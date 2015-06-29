@@ -32,7 +32,7 @@ public class MSPInit implements Control{
 
         for (int i = 0; i < Network.size(); i++) {
             msprot = ((MSPastryProtocol)Network.get(i).getProtocol(this.mspid));
-            dht    = ((peersim.pht.dht.mspastry.MSPastry)Network.get(i).getProtocol(this.dhtid));
+            dht    = (MSPastry)Network.get(i).getProtocol(this.dhtid);
             prot   = ((PhtProtocol)Network.get(i).getProtocol(this.phtid));
             lst    = ((MSPastryListener)Network.get(i).getProtocol(this.lstid));
 
@@ -41,7 +41,6 @@ public class MSPInit implements Control{
             msprot.setMspastryid(this.mspid);
             dht.setMSP(msprot);
             prot.setDht(dht);
-            prot.setNodeId(i);
         }
 
         if (prot != null) {

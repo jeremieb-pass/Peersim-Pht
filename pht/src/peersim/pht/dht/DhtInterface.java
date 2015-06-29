@@ -11,6 +11,4 @@ import peersim.pht.messages.PhtMessage;
  */
 public interface DhtInterface {
     void send(PhtMessage message, String dest);
-    Object getNodeId();
-    Node getNode();
 }
