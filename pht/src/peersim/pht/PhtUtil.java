@@ -5,17 +5,14 @@ import peersim.core.Network;
 import peersim.core.Node;
 import peersim.pastry.MSPastryProtocol;
 
-import java.io.FileWriter;
-import java.io.IOException;
 import java.math.BigInteger;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Static methods to generate Objects or check properties.
+ * <p>Static methods to generate Objects or check properties.</p>
  *
- * The goal of this class is to provide some useful methods to other class
- * of the peersim.pht.* packages from generating a list of keys to statistics.
+ * <p>The goal of this class is to provide some useful methods to other class
+ * of the peersim.pht.* packages from generating a list of keys to statistics.</p>
  */
 public class PhtUtil {
 
@@ -218,7 +215,7 @@ public class PhtUtil {
      * @param len Number of bits of each String
      * @return the generated ArrayList
      */
-    public static ArrayList<String> genKeys (int len) {
+    public static ArrayList<String> genKeys (int len, boolean shuffle) {
         int max = (int) Math.pow(2, len);
         ArrayList<String> res;
 
@@ -235,7 +232,9 @@ public class PhtUtil {
             res.add(sb.toString());
         }
 
-//        Collections.shuffle(res, new Random(PhtProtocol.D));
+        if (shuffle) {
+            Collections.shuffle(res, new Random(PhtProtocol.D));
+        }
 
         return res;
     }
@@ -244,124 +243,21 @@ public class PhtUtil {
         return Integer.parseInt(key, 2);
     }
 
+    public static String father (String label) {
+        if (label == null) {
+            return null;
+        } else if (label.equals("")) {
+            return null;
+        }
+
+        System.out.printf("[[]] PhtUtil.father :: father of '%s' is '%s'\n",
+                label, label.substring(0, label.length()-1));
+        return label.substring(0, label.length()-1);
+    }
+
     /* _____________________________            _____________________________ */
     /* _____________________________ Statistics _____________________________ */
 
-    public static void phtStats() throws IOException {
-        int maxStats      = 10;
-        long nbNodes      = 0;
-        long nbLeaves     = 0;
-        long nbKeys       = 0;
-        int nbMoreB       = 0;
-        int nbKeysMoreB   = 0;
-        int maxHeightLeaf = 0;
-        int minHeightLeaf = PhtProtocol.D;
-        double average;
-        TreeSet<PhtNode> tsUsage      = new TreeSet<PhtNode>(new PNUsageComp());
-        TreeSet<PhtNode> tsKeysLeaves = new TreeSet<PhtNode>(new PNKeysComp());
-        FileWriter fw = new FileWriter("pht_stats.log");
-
-        for (int i = 0; i < Network.size(); i++) {
-            PhtProtocol pht;
-
-            pht = (PhtProtocol) Network.get(i).getProtocol(PhtProtocol.getPid());
-            if (pht == null) {
-                fw.close();
-                return;
-            }
-            for (PhtNode nd: pht.getNodes().values()) {
-                tsUsage.add(nd);
-
-                nbNodes++;
-
-                if (nd.isLeaf()) {
-                    nbLeaves++;
-
-                    tsKeysLeaves.add(nd);
-                    nbKeys += nd.getNbKeys();
-
-                    if (nd.getNbKeys() > PhtProtocol.B) {
-                        nbMoreB++;
-                        nbKeysMoreB += nd.getNbKeys();
-                    }
-
-                    if (nd.getLabel().length() < minHeightLeaf) {
-                        minHeightLeaf = nd.getLabel().length();
-                    } else if (nd.getLabel().length() > maxHeightLeaf) {
-                        maxHeightLeaf = nd.getLabel().length();
-                    }
-                }
-            }
-        }
-
-        // Write the results
-        fw.write("Number of keys in the Pht  : " + nbKeys   + "\n");
-        fw.write("Number of nodes in the Pht : " + nbNodes  + "\n");
-        fw.write("Number of leaves in the Pht: " + nbLeaves + "\n");
-        fw.write("Number of requests         : " + PhtProtocol.getNextId() + "\n\n");
-
-        fw.write("PhtProtocol.B: " + PhtProtocol.B + "\n");
-        fw.write("PhtProtocol.D: " + PhtProtocol.D + "\n\n");
-
-        average = ((double)nbKeysMoreB) / ((double) nbMoreB);
-        fw.write( String.format("Number of leaves with more than B keys: %d"
-                + " with %.2f keys on average\n\n", nbMoreB, average) );
-
-        fw.write("Trie height: " + maxHeightLeaf + "\n");
-        fw.write("Minimum height for a leaf: " + minHeightLeaf + "\n\n");
-
-        fw.write("\n---------- Usage ----------\n\n");
-        for (int i = 1; i <= maxStats; i++) {
-            PhtNode node = tsUsage.pollLast();
-            if (node == null) {
-                fw.close();
-                return;
-            }
-
-            fw.write(i + ". " + node.getLabel()
-                    + " has been used " + node.getUsage() + " times (all type of requests) "
-                    + " and really used " + node.getUsageDest() + " times\n");
-        }
-
-        fw.write("\n");
-        for (int i = 1; i <= maxStats; i++) {
-            PhtNode node = tsUsage.pollFirst();
-            if (node == null) {
-                fw.close();
-                return;
-            }
-
-            fw.write(i + ". " + node.getLabel()
-                    + " has been used " + node.getUsage() + " times (all type of requests) "
-                    + " and really used " + node.getUsageDest() + " times\n");
-        }
-
-        fw.write("\n\n\n---------- Keys ----------\n\n");
-        for (int i = 1; i <= maxStats; i++) {
-            PhtNode leaf = tsKeysLeaves.pollLast();
-            if (leaf == null) {
-                fw.close();
-                return;
-            }
-
-            fw.write(i + ". " + leaf.getLabel()
-                    + " has " + leaf.getNbKeys() + " keys\n");
-        }
-
-        fw.write("\n");
-        for (int i = 1; i <= maxStats; i++) {
-            PhtNode leaf = tsKeysLeaves.pollFirst();
-            if (leaf == null) {
-                fw.close();
-                return;
-            }
-
-            fw.write(i + ". " + leaf.getLabel()
-                    + " has " + leaf.getNbKeys() + " keys\n");
-        }
-
-        fw.close();
-    }
 
     private static class PNUsageComp implements Comparator<PhtNode> {
 
@@ -401,9 +297,9 @@ public class PhtUtil {
         int cpt      = 0;
         int nbKeys   = keys.size();
         String startLeaf = null;
-        List<Map<String, PhtNode>> nds = getAllNodes();
-        ConcurrentHashMap<String, PhtNode> nodes  = new ConcurrentHashMap<String, PhtNode>(nbKeys);
-        ConcurrentHashMap<String, PhtNode> leaves = new ConcurrentHashMap<String, PhtNode>(nbKeys);
+        List<Map<String, PhtNode>> nds  = getAllNodes();
+        HashMap<String, PhtNode> nodes  = new HashMap<String, PhtNode>(nbKeys);
+        HashMap<String, PhtNode> leaves = new HashMap<String, PhtNode>(nbKeys);
 
         for (Map<String, PhtNode> map: nds) {
             for (PhtNode node: map.values()) {
@@ -412,13 +308,15 @@ public class PhtUtil {
                 assert ! nodes.containsKey(node.getLabel());
                 nodes.put(node.getLabel(), node);
 
-                // Add the leaf the leaves map
                 if (node.isLeaf()) {
+
+                    System.out.printf("\n[PhtUtil] '%s' isLeaf\n", node.getLabel());
+
+                    // Add the leaf to the leaves map
                     assert ! leaves.containsKey(node.getLabel());
                     leaves.put(node.getLabel(), node);
 
-                    // Count the number of null links in the links between
-                    // nodes
+                    // Null links
                     if (node.getPrevLeaf().getNode() == null) {
                         nullPrev++;
                         startLeaf = node.getLabel();
@@ -426,25 +324,24 @@ public class PhtUtil {
                     if (node.getNextLeaf().getNode() == null) {
                         nullNext++;
                     }
-                }
 
-                for (String key: node.getKeys()) {
+                    // A leaf has no sons
+                    assert node.getLson().getNode() == null;
+                    assert node.getRson().getNode() == null;
 
-                    // An internal node has no keys
-                    if (! node.isLeaf()) {
-                        assert node.getEntrySet().size() == 0;
-                        continue;
-                    } else {
+                    // A leaf's label is a prefix for every of its keys
+                    for (String key: node.getKeys()) {
                         assert startsWith(key, node.getLabel());
-                        assert node.getLson().getNode() == null;
-                        assert node.getRson().getNode() == null;
+                        cpt++;
+
+//                        System.out.printf("\ncheckTrie :: PhtNode '%s' with key '%s'\n",
+//                                node.getLabel(), key);
                     }
-
-                    cpt++;
+                } else {
+                    // An internal node has no keys
+                    assert node.getDKeys().size() == 0;
                 }
-
             }
-
         }
 
         checkLeaves(leaves, startLeaf);
@@ -478,7 +375,8 @@ public class PhtUtil {
         assert inserted.containsAll(keysGen);
         assert keysGen.containsAll(inserted);
 
-        System.out.printf("nbKeys: %d <> cpt: %d\n", nbKeys, cpt);
+        System.out.printf("nbKeys: %d <> removed.size: %d <> cpt: %d\n",
+                nbKeys, removed.size(), cpt);
         assert (nbKeys - removed.size()) == cpt;
     }
 
@@ -495,6 +393,8 @@ public class PhtUtil {
         String next;
         List<String> check = new LinkedList<String>();
 
+        int cptOk = 0;
+
         assert startLeaf != null;
         assert leaves.size() >= 1;
 
@@ -510,7 +410,35 @@ public class PhtUtil {
             check.add(curr.getLabel());
 
             if (curr.getNextLeaf().getKey() != null) {
+
+                cptOk++;
+
                 nxtNode = leaves.get( curr.getNextLeaf().getKey() );
+                if( nxtNode == null ) {
+                    PhtNode nd = PhtProtocol.findPhtNode(curr.getNextLeaf().getKey());
+
+                    System.out.printf("\ncheckLeaves :: cptOk: %d :: %d leaves"
+                                    + "\n curr -> '%s'"
+                                    + "\n curr.nextLeaf -> '%s'\n",
+                            cptOk, leaves.size(),
+                            curr.getLabel(),
+                            curr.getNextLeaf().getKey());
+                    if (nd != null) {
+                        System.out.printf("nextLeaf is -----> %s\n\n", nd.toString());
+                    } else {
+                        System.out.printf("nextLeaf does not exist\n\n");
+                    }
+                }
+
+                if( leaves.get(nxtNode.getPrevLeaf().getKey()) != curr ) {
+                    System.out.printf("\ncheckLeaves :: cptOk: %d :: %d leaves"
+                                    + "\n curr -> '%s' :: nxt -> '%s'"
+                                    + "\n :: curr.nextLeaf -> '%s' :: nxt.PrevLeaf -> '%s'\n\n",
+                            cptOk, leaves.size(),
+                            curr.getLabel(), nxtNode.getLabel(),
+                            curr.getNextLeaf().getKey(), nxtNode.getPrevLeaf().getKey());
+                }
+
                 assert leaves.get(nxtNode.getPrevLeaf().getKey()) == curr;
             } else {
                 break;

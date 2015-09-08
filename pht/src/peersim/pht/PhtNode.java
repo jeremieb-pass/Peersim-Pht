@@ -3,39 +3,63 @@ package peersim.pht;
 import peersim.pht.messages.PhtMessage;
 import peersim.pht.state.PhtNodeState;
 
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Represents a Pht Node with;
- *   a) label
- *   b) right and left son (if any)
- *   c) father
- *   d) data: <key, value>
- *   e) leaf (is the node an internal node or a leaf ?)
- *   f) nextLeaf (null if the node is an internal node
+ * <p>Represents a Pht Node with:</p>
+ * <ol>
+ *   <li>a) label</li>
+ *   <li>b) right and left son (if any)</li>
+ *   <li>c) father</li>
+ *   <li>d) data: (key, value)</li>
+ *   <li>e) leaf (is the node an internal node or a leaf ?)</li>
+ *   <li>f) nextLeaf (null if the node is an internal node</li>
+ * </ol>
  */
-
 public class PhtNode {
     private boolean  leaf;
     private int      nbKeys;
+
+    /*
+     * Father and sons
+     */
+    private NodeInfo father;
     private NodeInfo rson;
     private NodeInfo lson;
-    private NodeInfo father;
+
+    /*
+     * Threaded leaves (used only for the leaf nodes)
+     */
     private NodeInfo nextLeaf;
     private NodeInfo prevLeaf;
 
-    private final String      label;
+    private final String label;
+
+    /*
+     * A PhtProtocol can have many PhtNode but a PhtNode has one and only
+     * one PhtProtocol
+     */
     private final PhtProtocol protocol;
+
+    /*
+     * (key, value) pairs
+     */
     private final Map<String, Object> dkeys;
 
-    /* Statistics */
-
-    // Every time this PhtNode is used
+    /*
+     * Statistics
+     * Every time this PhtNode is used
+     */
     private long usage;
 
-    // Only when is it used to insert, remove, get a data and/or a key
-    // or update a field. Everything except lookups.
+    /*
+     * Only when is it used to insert, remove, get a data and/or a key
+     * or update a field. Everything except lookups.
+     */
     private long usageDest;
 
     /*
@@ -45,6 +69,11 @@ public class PhtNode {
      */
     private PhtMessage message;
 
+    /*
+     * A PhtNode has a state. This is used for merges and splits: when a
+     * PhtNode is not in a stable state, some operations (e.g. insertion) are
+     * not allowed.
+     */
     public final PhtNodeState state;
 
     public PhtNode(String label, PhtProtocol protocol) {
@@ -57,17 +86,15 @@ public class PhtNode {
         this.dkeys      = new ConcurrentHashMap<String, Object>(PhtProtocol.B, (float)0.75);
         this.state      = new PhtNodeState();
         this.protocol   = protocol;
+        this.leaf       = true;
 
         if (label.equals("")) {
             this.father = new NodeInfo(null);
         } else if (label.length() == 1) {
             this.father = new NodeInfo("");
         } else {
-            this.father = new NodeInfo(this.label.substring(0, this.label.length() - 2)
-            );
+            this.father = new NodeInfo(this.label.substring(0, this.label.length() - 2));
         }
-
-        this.leaf = true;
     }
 
 
@@ -87,14 +114,11 @@ public class PhtNode {
     public int insert (String key, Object data) {
         int res;
 
-        PhtProtocol.log(String.format("\tPHT NODE (('%s')) insert <> key: '%s' , data: %s\n",
-                this.label, key, data));
-
         try {
             if (this.dkeys.put(key, data) == null) {
                 res = 0;
             } else {
-                res = -1;
+                return -1;
             }
         } catch (NullPointerException npe) {
             return -2;
@@ -109,6 +133,10 @@ public class PhtNode {
         if (! this.label.equals("")) {
             this.protocol.sendUpdateNbKeys(this.label, this.father, true);
         }
+
+        PhtProtocol.log(String.format("\tPHT NODE (('%s')) insert <> key: '%s'"
+                        + ", data: %s, res: %d\n",
+                this.label, key, data, res));
         return res;
     }
 
@@ -178,14 +206,18 @@ public class PhtNode {
      */
     public boolean remove(String key) {
         if (this.dkeys.remove(key) != null) {
+
             this.nbKeys--;
             if (! this.label.equals("")) {
                 this.protocol.sendUpdateNbKeys(this.label, this.father, false);
             }
 
+            PhtProtocol.log(String.format("((PHTNODE)) key '%s' removed\n", key));
+
             return true;
         }
 
+        PhtProtocol.log(String.format("((PHTNODE)) key '%s' already removed\n", key));
         return false;
     }
 
@@ -210,20 +242,6 @@ public class PhtNode {
     /* ________________________                       _______________________ */
     /* ________________________ Split related methods _______________________ */
 
-    /**
-     * Makes the splits operations (if necessary) and returns the node that
-     * will be in charge of the key. It also updates the prevLeaf and
-     * nextLeaf.
-     * @param key
-     * @return
-     */
-
-    /**
-     * This method is called by splitAndGetNode and performs at least one
-     * split operation. If all the keys moved to the same children (left or
-     * right son), the method is called recursively until there "some place"
-     * for the key (who will be inserted after by a call to the insert method)
-     */
     private void split() {
         this.leaf = false;
         if (! this.state.startSplit() ) {
@@ -232,6 +250,7 @@ public class PhtNode {
 
         this.protocol.sendSplit(this.label, this.lson.getKey());
         this.protocol.sendSplit(this.label, this.rson.getKey());
+        this.leaf = false;
     }
 
     /**
@@ -290,6 +309,8 @@ public class PhtNode {
      * Transform the PhtNode into an internal node.
      */
     public void internal() {
+        this.nextLeaf.clear();
+        this.prevLeaf.clear();
         this.dkeys.clear();
         this.leaf = false;
     }
@@ -312,7 +333,7 @@ public class PhtNode {
     }
 
     /**
-     * Clear the <key, data> map
+     * Clear the (key, data) map
      */
     public void clear() {
         this.dkeys.clear();
@@ -321,7 +342,7 @@ public class PhtNode {
     /**
      * Make this PhtNode a leaf
      */
-    public void Leaf() {
+    public void leaf() {
         this.lson.setNode(null);
         this.rson.setNode(null);
         this.leaf = true;
@@ -352,6 +373,10 @@ public class PhtNode {
         PhtMessage res = this.message;
         this.message = null;
         return res;
+    }
+
+    public boolean canStoreMessage () {
+        return this.message == null;
     }
 
     /* ____________________________              ____________________________ */

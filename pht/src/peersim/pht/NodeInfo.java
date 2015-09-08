@@ -7,7 +7,7 @@ import peersim.core.Node;
  * PhtNode maintains on other PhtNodes: there key and and there Node (peersim).
  */
 public class NodeInfo {
-    private final String key;
+    private String key;
     private Node node;
 
     public NodeInfo(String key) {
@@ -29,5 +29,10 @@ public class NodeInfo {
 
     public void setNode(Node node) {
         this.node = node;
+    }
+
+    public void clear () {
+        this.node = null;
+        this.key  = null;
     }
 }
