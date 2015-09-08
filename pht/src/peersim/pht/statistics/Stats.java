@@ -1,11 +1,6 @@
 package peersim.pht.statistics;
 
-import peersim.pht.messages.PMRangeQuery;
-import peersim.pht.messages.PhtMessage;
-
 import java.util.LinkedList;
-import java.util.List;
-import java.util.Stack;
 
 /**
  * <p>
@@ -30,10 +25,17 @@ public class Stats {
     // Number of operations triggered during the simulation.
     private long opCount;
 
+    // When the simulation started
+    private long startTime;
+
+    // When the simulation ended
+    private long endTime;
+
     private Stats() {
         this.ps = new LinkedList<PhaseStats>();
         this.ps.addFirst(new PhaseStats());
-        this.curr = this.ps.peekLast();
+        this.curr      = this.ps.peekLast();
+        this.startTime = System.currentTimeMillis();
     }
 
     public synchronized static Stats getInstance() {
@@ -65,6 +67,10 @@ public class Stats {
         return this.ps.size();
     }
 
+    public void end() {
+        this.endTime = System.currentTimeMillis();
+    }
+
     /**
      * Remove last phase.
      * Usefull when you add a new phase after each computing: at the end of
@@ -77,6 +83,14 @@ public class Stats {
 
     public void printAll() {
         int i = 0;
+        long min  = 0;
+        long sec  = 0;
+        long msec = 0;
+        long tot  = 0;
+
+        if (this.endTime == 0) {
+            end();
+        }
 
         System.out.println(AsciiStats.phtSimulation);
 
@@ -86,6 +100,18 @@ public class Stats {
             pst.printAll();
             i++;
         }
+
+        tot = this.endTime - this.startTime;
+        min = tot / 60000;
+
+        tot = tot - (min * 60000);
+        sec = tot / 1000;
+
+        msec = tot - (sec * 1000);
+
+        System.out.println(AsciiStats.generalInfo);
+        System.out.printf ("The simulation lasted %d min, %d sec and %d msec\n",
+                min, sec, msec);
 
         System.out.println(AsciiStats.toBoldlyGo);
     }

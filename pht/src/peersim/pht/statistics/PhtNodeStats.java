@@ -2,7 +2,6 @@ package peersim.pht.statistics;
 
 import peersim.pht.PhtNode;
 import peersim.pht.PhtProtocol;
-import peersim.pht.PhtUtil;
 
 import java.util.*;
 
@@ -174,13 +173,13 @@ class PhtNodeStats {
     /* ___________________ Sort by number of keys / usage ___________________ */
 
     /**
-     * Retrieve the nb upper nodes in the given TreeSet.
+     * Retrieve the nb upper nodes in the given List.
      * The 'set' is sorted: do not use this method more than once on the
      * same set (it would be expansive).
      * @param set Source list
      * @param nb maximum of PhtNode to return
      * @return list of nb (at most) PhtNode
-     * keys in the TreeSet set.
+     * keys in the List.
      */
     private List<PhtNodeInfo> mostPN (List<PhtNodeInfo> set, int nb) {
         List<PhtNodeInfo> mukpn = new LinkedList<PhtNodeInfo>();
@@ -194,9 +193,7 @@ class PhtNodeStats {
         }
 
         for (int i = 0; (i < nb) && (i < set.size()); i++) {
-            PhtNodeInfo pni;
-
-            pni = set.get( set.size()-i-1 );
+            PhtNodeInfo pni = set.get( set.size()-i-1 );
             
             if (pn != null) {
                 mukpn.add(pni);
@@ -204,6 +201,38 @@ class PhtNodeStats {
         }
         
         return mukpn;
+    }
+
+    /**
+     * Retrieve the nb lower nodes in the given List.
+     * The 'set' is sorted: do not use this method more than once on the
+     * same set (it would be expansive).
+     * @param set Source list
+     * @param nb maximum of PhtNode to return
+     * @return list of nb (at most) PhtNode
+     * keys in the List.
+     */
+    private List<PhtNodeInfo> lessPN (List<PhtNodeInfo> set, int nb) {
+        List<PhtNodeInfo> lkpn = new LinkedList<PhtNodeInfo>();
+
+        if (set.isEmpty()) {
+            return lkpn;
+        }
+
+        if (! this.sorted) {
+            sortAll();
+        }
+
+        for (int i = 0; (i < nb) && (i < set.size()); i++) {
+            PhtNodeInfo pni = set.get(i);
+
+            if (pn != null) {
+                lkpn.add(pni);
+            }
+        }
+
+        Collections.reverse(lkpn);
+        return lkpn;
     }
 
     /* ________________________________      ________________________________ */
@@ -222,6 +251,7 @@ class PhtNodeStats {
 
     /**
      * Heights
+     * todo change to floats and repare the median
      * @return min, avg, median, max heights
      */
     private int[] heights () {
@@ -253,11 +283,22 @@ class PhtNodeStats {
         ha[AVG] = ha[AVG] / size;
 
         // Median
-        if (size % 2 != 0) {
-            ha[MED] = pnil.get( (size/2)+1 ).getLabel().length();
+        int med1;
+        int med2;
+
+        if (pnil.size() <= 2) {
+            med1 = 0;
+            med2 = pnil.size()/2;
         } else {
-            ha[MED]  = pnil.get( size/2 ).getLabel().length();
-            ha[MED] += pnil.get( (size/2)+1 ).getLabel().length();
+            med1 = size/2;
+            med2 = (size/2) + 1;
+        }
+
+        if (size % 2 != 0) {
+            ha[MED] = pnil.get( med2 ).getLabel().length();
+        } else {
+            ha[MED]  = pnil.get( med1 ).getLabel().length();
+            ha[MED] += pnil.get( med2 ).getLabel().length();
             ha[MED]  = ha[MED] / 2;
         }
 
@@ -288,6 +329,14 @@ class PhtNodeStats {
         zkPni.addAll( this.kpnLeavesBsup );
         zkPni.sort( compKeys );
 
+        if (zkPni.get(0).getNbKeys() > 0) {
+            zkl[MIN] = 0;
+            zkl[AVG] = 0;
+            zkl[MAX] = 0;
+            zkl[TOT] = 0;
+            return zkl;
+        }
+
         min = zkPni.get(0).getLabel().length();
         max = min;
         tot = 0;
@@ -306,6 +355,7 @@ class PhtNodeStats {
 
             tot += pni.getLabel().length();
         }
+        minIdx--;
 
         zkl[MIN] = min;
         zkl[AVG] = (float) tot / (float) minIdx;
@@ -317,43 +367,73 @@ class PhtNodeStats {
 
     /**
      * Print every information on the PhtNodes.
-     * @param mu Maximum number of PhtNodes to print each time many could
+     * @param nb Maximum number of PhtNodes to print each time many could
      *           be.
      */
-    public void printAll (int mu) {
+    public void printAll (int nb) {
+        int even;
+        int max;
         int nbLeavesBinf = this.kpnLeavesBinf.size();
         int nbLeavesBsup = this.kpnLeavesBsup.size();
         int nbLeaves     = this.kpnLeavesBinf.size() + this.kpnLeavesBsup.size();
 
         /* ---------- Usage ---------- */
 
+        max = nb < this.pn.size() ? nb : this.pn.size();
+
         System.out.printf("Number of PhtNodes: %d (%d leaves)\n\n%d most used PhtNodes\n",
-                this.pn.size(), nbLeaves, mu > this.pn.size() ?  this.pn.size(): mu);
-        for (PhtNodeInfo ndi: mostPN(this.pn, mu)) {
+                this.pn.size(), nbLeaves, max > this.pn.size() ?  this.pn.size(): max);
+        for (PhtNodeInfo ndi: mostPN(this.pn, max)) {
             System.out.printf("\t[%s] used %d times (%d times as destination)\n",
                     ndi.getLabel(), ndi.getUsage(), ndi.getUsageDest());
         }
 
-        /* ---------- Keys ---------- */
+        /* ---------- Keys (less than max) ---------- */
 
-        System.out.println("\n---------- Keys ----------");
-        System.out.printf("\nNumber of leaves with less than %d keys: %d\n",
+        max  = nb < this.kpnLeavesBinf.size() ? nb : this.kpnLeavesBinf.size();
+        even = max % 2 == 0 ? 0 : 1;
+
+        System.out.printf("\n---------- Keys (less than %d) ----------\n", PhtProtocol.B);
+        System.out.printf("\nNumber of leaves with less than %d keys: %d\n"
+                        + "\twith the most keys: \n",
                 PhtProtocol.B, nbLeavesBinf);
-        for (PhtNodeInfo ndi: mostPN(this.kpnLeavesBinf, mu)) {
+        for (PhtNodeInfo ndi: mostPN(this.kpnLeavesBinf, (max/2) + even)) {
             System.out.printf("\t[%s] %d keys, used %d times\n",
                     ndi.getLabel(), ndi.getNbKeys(), ndi.getUsage());
         }
 
-        System.out.printf("\nNumber of leaves with more than %d keys: %d\n",
+        System.out.printf("\n\twith the least keys: \n");
+        for (PhtNodeInfo ndi: lessPN(this.kpnLeavesBinf, max/2)) {
+            System.out.printf("\t[%s] %d keys, used %d times\n",
+                    ndi.getLabel(), ndi.getNbKeys(), ndi.getUsage());
+        }
+
+        /* ---------- Keys (more than max) ---------- */
+
+        max  = nb < this.kpnLeavesBsup.size() ? nb : this.kpnLeavesBsup.size();
+        even = max % 2 == 0 ? 0 : 1;
+
+        System.out.printf("\n\n---------- Keys (more than %d) ----------\n", PhtProtocol.B);
+        System.out.printf("\nNumber of leaves with more than %d keys: %d\n"
+                + "\twith the most keys: \n",
                 PhtProtocol.B, nbLeavesBsup);
-        for (PhtNodeInfo ndi: mostPN(this.kpnLeavesBsup, mu)) {
+        for (PhtNodeInfo ndi: mostPN(this.kpnLeavesBsup, (max/2) + even)) {
             System.out.printf("\t[%s] %d keys, used %d times\n",
                     ndi.getLabel(), ndi.getNbKeys(), ndi.getUsage());
         }
 
+        System.out.printf("\n\twith the least keys: \n");
+        for (PhtNodeInfo ndi: lessPN(this.kpnLeavesBsup, max/2)) {
+            System.out.printf("\t[%s] %d keys, used %d times\n",
+                    ndi.getLabel(), ndi.getNbKeys(), ndi.getUsage());
+        }
+
+        /* ---------- Min, max, avg ---------- */
+
+        System.out.printf("\n\n---------- Min, max , avg ----------\n");
         if (this.minKeysBinf != null && this.maxKeysBinf != null) {
             System.out.printf("\nMin, avg, max in the 'less than B keys set':\n"
-                            + "[%s] %d keys <> %.1f keys on average <> [%s] %d keys\n",
+                            + "[%s] %d keys <> %.3f keys on average <> [%s] %d keys\n",
                     this.minKeysBinf.getLabel(), this.minKeysBinf.getNbKeys(),
                     (float) this.nbKeysBinf / (float) nbLeavesBinf,
                     this.maxKeysBinf.getLabel(), this.maxKeysBinf.getNbKeys());
@@ -361,7 +441,7 @@ class PhtNodeStats {
 
         if (this.minKeysBsup != null && this.maxKeysBsup != null) {
             System.out.printf("\nMin, avg, max in the 'more than B keys set':\n"
-                            + "[%s] %d keys <> %.1f keys on average <> [%s] %d keys\n",
+                            + "[%s] %d keys <> %.3f keys on average <> [%s] %d keys\n",
                     this.minKeysBsup.getLabel(), this.minKeysBsup.getNbKeys(),
                     (float) this.nbKeysBsup / (float) nbLeavesBsup,
                     this.maxKeysBsup.getLabel(), this.maxKeysBsup.getNbKeys());
@@ -370,15 +450,16 @@ class PhtNodeStats {
         /* ---------- Zero key leaves ---------- */
         float[] zkl = zeroKeysLeaves();
         System.out.println("\n---------- Zero key leaves ----------");
-        System.out.printf("\nMin, avg, max heights of leaves with zero keys: %.1f, %.1f, %.1f\n" +
-                        "Total number of keys with zero keys: %.1f\n",
+        System.out.printf("\nMin, avg, max heights of leaves with zero keys:\n\t"
+                        + "%.3f <> %.3f <> %.3f\n"
+                        + "\nTotal number of leaves with zero keys: %.3f\n",
                 zkl[MIN], zkl[AVG], zkl[MAX], zkl[TOT]);
 
         /* ---------- Heights ---------- */
 
         int[] ha = heights();
         System.out.println("\n---------- Heights ----------");
-        System.out.printf("\nMin, avg, median, max heights: \n%d, %d, %d, %d\n",
+        System.out.printf("\nMin, avg, median, max heights: \n\t%d <> %d <> %d <> %d\n",
                 ha[MIN], ha[AVG], ha[MED], ha[MAX]);
     }
 }

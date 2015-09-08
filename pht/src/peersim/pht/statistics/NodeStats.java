@@ -1,6 +1,9 @@
 package peersim.pht.statistics;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * <p>
@@ -171,7 +174,7 @@ class NodeStats {
         for (NodeHolder nh: this.nodeStats) {
             pna[AVG] += nh.nbPhtNodes;
         }
-        pna[AVG] = (float)pna[AVG] / (float)this.nodeStats.size();
+        pna[AVG] = pna[AVG] / (float)this.nodeStats.size();
 
         /* Leaves only */
         int minLeaves = 0;
@@ -191,7 +194,7 @@ class NodeStats {
 
         int minIdx = minLeaves < this.nodeStats.size() ? minLeaves : 0;
         pna[MIN_LEAVES] = this.nodeStats.get(minIdx).nbLeaves;
-        pna[AVG_LEAVES] = (float)pna[AVG_LEAVES] / (float)(this.nodeStats.size() - minIdx + 1);
+        pna[AVG_LEAVES] = pna[AVG_LEAVES] / (float)(this.nodeStats.size() - minIdx + 1);
 
         return pna;
     }
@@ -210,9 +213,9 @@ class NodeStats {
 
         // PhtNodes on the Node
         float[] pna = phtNodes();
-        System.out.printf("\nMin, avg, max number of PhtNodes per Node: %.1f <> %.1f <> %.1f\n",
+        System.out.printf("\nMin, avg, max number of PhtNodes per Node: %.3f <> %.3f <> %.3f\n",
                 pna[MIN], pna[AVG], pna[MAX]);
-        System.out.printf("Min, avg, max number of leaves per Node: %.1f <> %.1f <> %.1f\n",
+        System.out.printf("Min, avg, max number of leaves per Node: %.3f <> %.3f <> %.3f\n",
                 pna[MIN_LEAVES], pna[AVG_LEAVES], pna[MAX_LEAVES]);
 
         // Node with the Pht's root

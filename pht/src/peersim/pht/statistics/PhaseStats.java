@@ -6,7 +6,7 @@ import peersim.pht.PhtProtocol;
 import peersim.pht.messages.PMRangeQuery;
 import peersim.pht.messages.PhtMessage;
 
-import java.util.*;
+import java.util.HashMap;
 
 /**
  * <p>
@@ -63,6 +63,11 @@ public class PhaseStats {
     private long deleteCount;
 
     /*
+     * Count number of times a retry has been necessary.
+     */
+    private long retry[];
+
+    /*
      * Split and merge operations requested by the PhtNodes.
      */
     private long splitCount;
@@ -82,6 +87,7 @@ public class PhaseStats {
         this.pnStats      = new PhtNodeStats();
         this.rqStats      = new RQueryStats();
         this.mergeAvoided = new HashMap<Long, Boolean>();
+        this.retry        = new long[PhtMessage.LAST_OP];
     }
 
     /* ________________________                        ______________________ */
@@ -101,7 +107,7 @@ public class PhaseStats {
 
         for (int i = 0; i < Network.size(); i++) {
             boolean hasRoot = false;
-            int nbLeaves = 0;
+            int nbLeaves    = 0;
             PhtProtocol prot;
 
             prot = (PhtProtocol) Network.get(i).getProtocol(phtid);
@@ -112,6 +118,8 @@ public class PhaseStats {
                 } else if (nd.getLabel().equals("")) {
                     hasRoot = true;
                 }
+
+                this.pnStats.addPN(nd, nd.isLeaf());
             }
 
             this.nStats.addN(
@@ -122,10 +130,6 @@ public class PhaseStats {
                     nbLeaves,
                     hasRoot
             );
-
-            for (PhtNode nd: prot.getNodes().values()) {
-                this.pnStats.addPN(nd, nd.isLeaf());
-            }
         }
 
         this.started = true;
@@ -278,6 +282,10 @@ public class PhaseStats {
         this.deleteCount++;
     }
 
+    public void incRetry (int op) {
+        this.retry[op]++;
+    }
+
     /* __________________________                  __________________________ */
     /* __________________________ Split statistics __________________________ */
 
@@ -349,10 +357,13 @@ public class PhaseStats {
 
         // Insert
         System.out.println(AsciiStats.insertDelete);
-        System.out.printf("%d insert\n", this.insertCount);
+        System.out.printf("%d insert (+ %d retries)\n",
+                this.insertCount,
+                this.retry[PhtMessage.INSERTION]);
 
         // Delete
-        System.out.printf("%d deletion\n", this.deleteCount);
+        System.out.printf("%d deletion (+ %d retries)\n",
+                this.deleteCount, this.retry[PhtMessage.SUPRESSION]);
 
         // Splits
         System.out.println(AsciiStats.splitMerge);
