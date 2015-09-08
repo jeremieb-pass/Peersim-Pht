@@ -4,32 +4,48 @@ import peersim.core.Node;
 
 
 /**
- * PhtMessage is the central message class for all communications at the
- * Pht level.
- * It contains constant values for all different type of messages (15 related
- * to requests, and 15 more for the corresponding acquittal).
+ * <p>
+ *     PhtMessage is the central message class for all communications at the
+ *     Pht level.
+ *     It contains constant values for all different type of messages (20
+ *     related to requests, and 20 more for the corresponding acquittal).
+ * </p>
  *
- * There is no big enumeration, because we some time need to do some
- * comparisons.
+ * <p>
+ *     There is no big enumeration, because we some time need to do some
+ *     comparisons.
+ * </p>
  *
- * A PhtMessage has:
- *   1/ a type, split / suppression / lookup / merge / etc. request
- *   2/ a source node (on the peersim level), this is needed for direct
- *      communications between nodes to avoid unnecessary dht-lookup operations.
- *   3/ a source node's (PhtNode) label: this will be used for acquittals
- *   4/ an id, each request (and hence each message) must have a unique one for
- *      identification
- *   5/ more space if needed, like another class in the peersim.pht.messages
+ * <p>A PhtMessage has:</p>
+ * <ol>
+ *   <li>
+ *       a type, split / suppression / lookup / merge / etc. request
+ *   </li>
+ *   <li>
+ *       a source node (on the peersim level), this is needed for direct
+ *       communications between nodes to avoid unnecessary dht-lookup
+ *       operations.
+ *   </li>
+ *   <li>
+ *       a source node's (PhtNode) label: this will be used for acquittals
+ *   </li>
+ *   <li>
+ *       an id, each request (and hence each message) must have a unique one for
+ *       identification
+ *   </li>
+ *   <li> more space if needed, like another class in the peersim.pht.messages
  *      package or a boolean, or a data.
+ *   </li>
+ * </ol>
  */
 public class PhtMessage {
-    // For the first Pht node on the network
-    public static final int INIT = -1;
 
+    // For the first node on the network
+    public static final int INIT = -1;
 
     /* Indexes */
 
-    public static final int ACK         = 100;
+    public static final int ACK  = 100;
 
     /* Requests */
 
@@ -49,35 +65,41 @@ public class PhtMessage {
     public static final int UPDATE_NBKEYS       = 14;
     public static final int UPDATE_NBKEYS_PLUS  = 15;
     public static final int LIN_LOOKUP          = 16;
-    public static final int BIN_LOOKUP          = 17;
-    public static final int SEQ_QUERY           = 18;
-    public static final int PAR_QUERY           = 19;
+    public static final int BACK_LIN_LOOKUP     = 17;
+    public static final int BIN_LOOKUP          = 18;
+    public static final int SEQ_QUERY           = 19;
+    public static final int PAR_QUERY           = 20;
 
     /* ACK for requests */
 
-    public static final int ACK_SPLIT               = SPLIT               + ACK;
-    public static final int ACK_SPLIT_DATA          = SPLIT_DATA          + ACK;
-    public static final int ACK_SPLIT_LEAVES        = SPLIT_LEAVES        + ACK;
-    public static final int ACK_UPDATE_LEAVES       = UPDATE_PREV_LEAF    + ACK;
-    public static final int ACK_UPDATE_NEXT_LEAF    = UPDATE_NEXT_LEAF    + ACK;
-    public static final int ACK_MERGE               = MERGE               + ACK;
-    public static final int ACK_MERGE_LEAVES        = MERGE_LEAVES        + ACK;
-    public static final int ACK_MERGE_DATA          = MERGE_DATA          + ACK;
-    public static final int ACK_MERGE_DONE          = MERGE_DONE          + ACK;
-    public static final int ACK_INSERTION           = INSERTION           + ACK;
-    public static final int ACK_SUPRESSION          = SUPRESSION          + ACK;
-    public static final int ACK_UPDATE_NBKEYS_MINUS = UPDATE_NBKEYS_MINUS + ACK;
-    public static final int ACK_UPDATE_NBKEYS_PLUS  = UPDATE_NBKEYS_PLUS  + ACK;
-    public static final int ACK_LIN_LOOKUP          = LIN_LOOKUP          + ACK;
-    public static final int ACK_BIN_LOOKUP          = BIN_LOOKUP          + ACK;
-    public static final int ACK_SEQ_QUERY           = SEQ_QUERY           + ACK;
-    public static final int ACK_PAR_QUERY           = PAR_QUERY           + ACK;
-    public static final int ACK_PAR_QUERY_CLIENT    = ACK_PAR_QUERY       + 1;
-    public static final int ACK_PAR_QUERY_CLIENT_F  = ACK_PAR_QUERY_CLIENT+ 1;
+    public static final int ACK_SPLIT               = SPLIT                + ACK;
+    public static final int ACK_SPLIT_DATA          = SPLIT_DATA           + ACK;
+    public static final int ACK_SPLIT_LEAVES        = SPLIT_LEAVES         + ACK;
+    public static final int ACK_UPDATE_PREV_LEAF    = UPDATE_PREV_LEAF     + ACK;
+    public static final int ACK_UPDATE_NEXT_LEAF    = UPDATE_NEXT_LEAF     + ACK;
+    public static final int ACK_MERGE               = MERGE                + ACK;
+    public static final int ACK_MERGE_LEAVES        = MERGE_LEAVES         + ACK;
+    public static final int ACK_MERGE_DATA          = MERGE_DATA           + ACK;
+    public static final int ACK_MERGE_DONE          = MERGE_DONE           + ACK;
+    public static final int ACK_INSERTION           = INSERTION            + ACK;
+    public static final int ACK_SUPRESSION          = SUPRESSION           + ACK;
+    public static final int ACK_UPDATE_NBKEYS_MINUS = UPDATE_NBKEYS_MINUS  + ACK;
+    public static final int ACK_UPDATE_NBKEYS_PLUS  = UPDATE_NBKEYS_PLUS   + ACK;
+    public static final int ACK_LIN_LOOKUP          = LIN_LOOKUP           + ACK;
+    public static final int ACK_BIN_LOOKUP          = BIN_LOOKUP           + ACK;
+    public static final int ACK_SEQ_QUERY           = SEQ_QUERY            + ACK;
+    public static final int ACK_PAR_QUERY           = PAR_QUERY            + ACK;
+    public static final int ACK_PAR_QUERY_CLIENT    = ACK_PAR_QUERY        + 1;
+    public static final int ACK_PAR_QUERY_CLIENT_F  = ACK_PAR_QUERY_CLIENT + 1;
 
     /* Retry */
 
-    public static final int RETRY = 2063;
+    public static final int RETRY = -2063;
+
+    /* General info */
+
+    public static final int LAST_OP  = PAR_QUERY;
+    public static final int LAST_ACK = LAST_OP + ACK;
 
     private int type;
     private Node initiator;
@@ -138,5 +160,16 @@ public class PhtMessage {
 
     public void setType(int type) {
         this.type = type;
+    }
+
+    @Override
+    public String toString() {
+        if (this.initiatorLabel != null) {
+            return String.format("%d: init(%d, '%s') :: type: %d\n",
+                    this.id, this.initiator.getID(), this.initiatorLabel, this.type);
+        }
+
+        return String.format("%d: init(%d, null) :: type: %d\n",
+                this.id, this.initiator.getID(), this.type);
     }
 }
