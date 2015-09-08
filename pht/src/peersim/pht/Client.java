@@ -16,8 +16,10 @@ import java.util.List;
  */
 
 public interface Client {
-
     void responseOk(long requestId, int ok);
     void responseValue(long requestId, String key, Object data);
     void responseList(long requestId, List<PhtData> resp);
+
+    void splitOk();
+    void mergeOk();
 }
