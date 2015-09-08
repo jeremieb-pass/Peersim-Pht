@@ -3,10 +3,11 @@ package peersim.pht.dht.mspastry;
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
+import peersim.core.Node;
 import peersim.pastry.MSPastryProtocol;
+import peersim.pht.ClientInterlocutor;
 import peersim.pht.PhtProtocol;
-import peersim.pht.dht.mspastry.MSPastryListener;
-import peersim.pht.dht.mspastry.MSPastry;
+import peersim.pht.statistics.Stats;
 
 public class MSPInit implements Control{
     private final int mspid;
@@ -23,6 +24,10 @@ public class MSPInit implements Control{
         this.bootstrap = Configuration.getInt(prefix + ".bootstrap");
     }
 
+    /**
+     * Bug setup for the entire network. Called once.
+     * @return false
+     */
     @Override
     public boolean execute() {
         MSPastryProtocol msprot;
@@ -30,24 +35,35 @@ public class MSPInit implements Control{
         PhtProtocol prot = null;
         MSPastryListener lst;
 
-        for (int i = 0; i < Network.size(); i++) {
-            msprot = ((MSPastryProtocol)Network.get(i).getProtocol(this.mspid));
-            dht    = (MSPastry)Network.get(i).getProtocol(this.dhtid);
-            prot   = ((PhtProtocol)Network.get(i).getProtocol(this.phtid));
-            lst    = ((MSPastryListener)Network.get(i).getProtocol(this.lstid));
+        Stats.getInstance();
 
-            lst.setNode(Network.get(i));
+        for (int i = 0; i < Network.size(); i++) {
+            Node nd = Network.get(i);
+
+            msprot = ((MSPastryProtocol)nd.getProtocol(this.mspid));
+            dht    = (MSPastry)nd.getProtocol(this.dhtid);
+            prot   = ((PhtProtocol)nd.getProtocol(this.phtid));
+            lst    = ((MSPastryListener)nd.getProtocol(this.lstid));
+
+            lst.setNode(nd);
             msprot.setListener(lst);
             msprot.setMspastryid(this.mspid);
             dht.setMSP(msprot);
             prot.setDht(dht);
+            prot.setNode(nd);
+            prot.setNodeId(i);
         }
 
         if (prot != null) {
             prot.setStats();
         }
 
-        ((PhtProtocol)(Network.get(this.bootstrap).getProtocol(this.phtid))).sendInit("");
+        PhtProtocol pht;
+        pht = (PhtProtocol) Network.get(this.bootstrap).getProtocol(this.phtid);
+        pht.sendInit("");
+
+        ClientInterlocutor ci = ClientInterlocutor.getInstance();
+        ci.setPht(pht);
 
         return false;
     }

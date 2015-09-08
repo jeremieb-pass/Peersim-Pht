@@ -3,11 +3,15 @@ package peersim.pht.dht.mspastry;
 import peersim.config.Configuration;
 import peersim.core.Node;
 import peersim.edsim.EDProtocol;
+import peersim.edsim.EDSimulator;
 import peersim.pastry.MSPastryProtocol;
 import peersim.pastry.Message;
 import peersim.pht.messages.PhtMessage;
-import peersim.edsim.EDSimulator;
 
+/**
+ * The main purpose of this class is to deliver the message received at the
+ * MSPastryProtocol level to the PhtProtocol on the Node.
+ */
 public class MSPastryListener implements MSPastryProtocol.Listener, EDProtocol {
     private static String prefix;
 
@@ -19,6 +23,11 @@ public class MSPastryListener implements MSPastryProtocol.Listener, EDProtocol {
         this.phtid  = Configuration.getPid(prefix + ".phtid");
     }
 
+    /**
+     * Extract the PhtMessage from the Message (or the String for some tests
+     * during initialization phase).
+     * @param m Message received
+     */
     @Override
     public void receive(Message m) {
         String init;

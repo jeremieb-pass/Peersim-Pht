@@ -3,7 +3,10 @@ package peersim.pht.dht.mspastry;
 import peersim.config.Configuration;
 import peersim.core.Control;
 import peersim.core.Network;
-import peersim.pht.*;
+import peersim.pht.Client;
+import peersim.pht.PhtData;
+import peersim.pht.PhtProtocol;
+import peersim.pht.PhtUtil;
 import peersim.pht.statistics.Stats;
 
 import java.util.LinkedList;
@@ -36,8 +39,9 @@ public class MSPClient implements Control, Client {
         int len       = Configuration.getInt(prefix + ".len");
         int maxKeys   = Configuration.getInt(prefix + ".max");
         int bootstrap = Configuration.getInt(prefix + ".bootstrap");
+        boolean shuffle = Configuration.getBoolean(prefix + ".suffle");
 
-        List<String> keys = PhtUtil.genKeys(len);
+        List<String> keys = PhtUtil.genKeys(len, shuffle);
 
         System.out.println("MSPClient");
 
@@ -72,9 +76,10 @@ public class MSPClient implements Control, Client {
             nextOp++;
             System.out.printf("[MSPClient] nextOp: %d\n", nextOp);
 
-            if (nextOp == 3) {
+            if (nextOp == 1) {
                 PhtUtil.checkTrie(kdata, inserted, removed);
                 PhtUtil.allKeys(inserted);
+                nextOp = 4;
             }
 
             // Statistics
@@ -89,7 +94,7 @@ public class MSPClient implements Control, Client {
         switch (nextOp) {
             case 0:
                 System.out.printf("|| MSPClient || key: '%s'\n", data.getKey());
-                if ( this.pht.insertion( data.getKey(), data.getData(), this) >= 0) {
+                if ( this.pht.insertion( data.getKey(), data.getData()) >= 0) {
                     lock();
                     System.out.printf("::MSPClient:: insertion\n");
                     inserted.add(kdata.get(next).getKey());
@@ -98,7 +103,7 @@ public class MSPClient implements Control, Client {
                 break;
 
             case 1:
-                if (this.pht.query(data.getKey(), this) >= 0) {
+                if (this.pht.query(data.getKey()) >= 0) {
                     lock();
                     System.out.printf("::MSPClient:: query\n");
                     next++;
@@ -106,7 +111,7 @@ public class MSPClient implements Control, Client {
                 break;
 
             case 3:
-                if (this.pht.suppression(data.getKey(), this) >= 0) {
+                if (this.pht.suppression(data.getKey()) >= 0) {
                     lock();
                     inserted.remove(kdata.get(next).getKey());
                     removed.add(kdata.get(next).getKey());
@@ -118,8 +123,8 @@ public class MSPClient implements Control, Client {
             case 2:
                 if (this.pht.rangeQuery(
                         kdata.get(next).getKey(),
-                        kdata.get(kdata.size()-1).getKey(),
-                        this) >= 0) {
+                        kdata.get(kdata.size()-1).getKey()
+                ) >= 0) {
                     lock();
                     System.out.printf("::MSPClient:: rangeQuery '%s' to '%s'\n",
                             kdata.get(next).getKey(),
@@ -183,6 +188,16 @@ public class MSPClient implements Control, Client {
             System.out.printf("::responseList:: '%s' : %s\n",
                     data.getKey(), data.getData().toString());
         }
+    }
+
+    @Override
+    public void splitOk() {
+
+    }
+
+    @Override
+    public void mergeOk() {
+
     }
 
 }

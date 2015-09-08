@@ -13,7 +13,7 @@ import java.math.BigInteger;
 
 /**
  * MSPastry is the concrete interface between the peersim.pastry package and
- * PhtProtocol. It's main method is send, others provide some informations.
+ * PhtProtocol. It's main method is send, others provide some information.
  */
 public class MSPastry implements DhtInterface, EDProtocol {
     private final String prefix;
@@ -21,8 +21,8 @@ public class MSPastry implements DhtInterface, EDProtocol {
     private MSPastryProtocol msp;
 
    public MSPastry (String prefix) {
-       this.prefix     = prefix;
-       this.mspId      = Configuration.getPid(prefix + ".mspid");
+       this.prefix = prefix;
+       this.mspId  = Configuration.getPid(prefix + ".mspid");
    }
 
     /**
@@ -38,12 +38,10 @@ public class MSPastry implements DhtInterface, EDProtocol {
 
         code = PhtUtil.hashMe(dest);
         recipient = new BigInteger(code);
-        MSPClient.lock();
-        System.out.printf("\n[[%d]] PHT MSPastry::send %s\n\n", this.msp.nodeId, recipient);
-//        this.msp.setMspastryid(this.mspId);
+        System.out.printf("\n[[%d]] PHT MSPastry::send %s (type: %d)\n\n",
+                this.msp.nodeId, recipient, message.getType());
 
-
-        this.msp.send( recipient, message);
+        this.msp.send(recipient, message);
     }
 
     @Override

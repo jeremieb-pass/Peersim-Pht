@@ -1,11 +1,11 @@
 package peersim.pht.example;
 
 import peersim.config.Configuration;
+import peersim.core.CommonState;
 import peersim.core.Control;
-import peersim.core.Network;
 import peersim.pht.Client;
+import peersim.pht.ClientInterlocutor;
 import peersim.pht.PhtData;
-import peersim.pht.PhtProtocol;
 import peersim.pht.PhtUtil;
 import peersim.pht.statistics.Stats;
 
@@ -24,38 +24,43 @@ import java.util.List;
  */
 public class MSPClientEx implements Control, Client {
 
-    private static boolean exe = false;
+    private int nbResponses;
+    private boolean statsDone = false;
+    private int next;
+    private LinkedList<PhtData> kdata;
+    private List<String> inserted;
+    private List<String> removed;
+    private ClientInterlocutor ci;
+    private int maxKeys;
 
-    private static int next;
-    private static LinkedList<PhtData> kdata;
-    private static List<String> inserted;
-    private static List<String> removed;
-    private final PhtProtocol pht;
-
-    private static int nextOp = 0;
+    private int nextOp = 0;
 
     public MSPClientEx(String prefix) {
-        int phtid     = Configuration.getPid(prefix + ".phtid");
-        int len       = Configuration.getInt(prefix + ".len");
-        int maxKeys   = Configuration.getInt(prefix + ".max");
-        int bootstrap = Configuration.getInt(prefix + ".bootstrap");
+        int pid         = Configuration.getPid(prefix + ".phtid");
+        int len         = Configuration.getInt(prefix + ".len");
+        int bootstrap   = Configuration.getInt(prefix + ".bootstrap");
+        boolean shuffle = Configuration.getBoolean(prefix + ".shuffle");
 
-        List<String> keys = PhtUtil.genKeys(len);
+        List<String> keys = PhtUtil.genKeys(len, shuffle);
 
-        System.out.println("MSPClient");
+        System.out.println("MSPClientEx " + pid);
 
-        kdata    = new LinkedList<PhtData>();
-        next     = 0;
-        exe      = true;
-        this.pht = (PhtProtocol) Network.get(bootstrap).getProtocol(phtid);
-        inserted = new LinkedList<String>();
-        removed  = new LinkedList<String>();
+        this.next     = 0;
+        this.kdata    = new LinkedList<PhtData>();
+        this.inserted = new LinkedList<String>();
+        this.removed  = new LinkedList<String>();
+        this.ci       = ClientInterlocutor.getInstance();
+        this.maxKeys  = Configuration.getInt(prefix + ".max");
+
+        this.nbResponses = this.maxKeys;
+
+        this.ci.setClient(this);
 
         for (int i = 0; (i < maxKeys) && (i < keys.size()); i++) {
             kdata.add( new PhtData( keys.get(i), Integer.parseInt(keys.get(i), 2)) );
         }
 
-        System.out.printf("[MSPClient] kdata size: %d\n", kdata.size());
+        System.out.printf("[MSPClientEx] kdata size: %d\n", kdata.size());
     }
 
     /**
@@ -64,100 +69,92 @@ public class MSPClientEx implements Control, Client {
      */
     @Override
     public boolean execute() {
-        if (! exe) {
+        PhtData keydata;
+
+        if (CommonState.getPhase() == CommonState.POST_SIMULATION) {
+            if (! this.statsDone) {
+                simulation();
+            }
+            return true;
+        } else if (this.next == this.kdata.size()) {
+
+            if (this.nbResponses == 0) {
+                this.next        = 0;
+                this.nbResponses = this.maxKeys;
+                this.nextOp++;
+
+                if (this.nextOp == 2) {
+                    Stats.getInstance().curr().start();
+                    Stats.getInstance().newPhase();
+
+                    List<String> keys = new LinkedList<String>();
+                    for (PhtData kd: this.kdata) {
+                        keys.add(kd.getKey());
+                    }
+
+
+//                    PhtUtil.checkTrie(this.kdata, keys, new LinkedList<String>());
+//                    PhtUtil.allKeys(keys);
+                } else if (this.nextOp > 2) {
+                    Stats.getInstance().curr().start();
+                }
+            }
+
             return false;
         }
 
-        PhtData data;
-
-        if (next >= kdata.size()) {
-            next = 0;
-            nextOp++;
-            System.out.printf("[MSPClient] nextOp: %d\n", nextOp);
-
-            if (nextOp == 3) {
-                PhtUtil.checkTrie(kdata, inserted, removed);
-                PhtUtil.allKeys(inserted);
-            }
-
-            // Statistics
-            Stats st = Stats.getInstance();
-
-            st.curr().start();
-            st.newPhase();
-        }
-
-        data = kdata.get(next);
-        System.out.printf("[MSPClient] switch: %d\n", nextOp);
-        switch (nextOp) {
+        keydata = this.kdata.get(this.next);
+        switch (this.nextOp) {
             case 0:
-                System.out.printf("|| MSPClient || key: '%s'\n", data.getKey());
-                if ( this.pht.insertion( data.getKey(), data.getData(), this) >= 0) {
-                    lock();
-                    System.out.printf("::MSPClient:: insertion\n");
-                    inserted.add(kdata.get(next).getKey());
-                    next++;
-                }
+                this.ci.insertion(keydata.getKey(), keydata.getData());
+                System.out.printf("[MSPClientEx] insertion: '%s' <> %s\n",
+                        keydata.getKey(), keydata.getData());
                 break;
 
             case 1:
-                if (this.pht.query(data.getKey(), this) >= 0) {
-                    lock();
-                    System.out.printf("::MSPClient:: query\n");
-                    next++;
-                }
-                break;
-
-            case 3:
-                if (this.pht.suppression(data.getKey(), this) >= 0) {
-                    lock();
-                    inserted.remove(kdata.get(next).getKey());
-                    removed.add(kdata.get(next).getKey());
-                    next++;
-                }
-//                next += kdata.size();
+                this.ci.query(keydata.getKey());
+                System.out.printf("[MSPClientEx] query: '%s'\n",
+                        keydata.getKey());
                 break;
 
             case 2:
-                if (this.pht.rangeQuery(
-                        kdata.get(next).getKey(),
-                        kdata.get(kdata.size()-1).getKey(),
-                        this) >= 0) {
-                    lock();
-                    System.out.printf("::MSPClient:: rangeQuery '%s' to '%s'\n",
-                            kdata.get(next).getKey(),
-                            kdata.get(kdata.size()-1).getKey());
-                    next += kdata.size() / 4;
-                }
+                this.ci.suppression(keydata.getKey());
+                System.out.printf("[MSPClientEx] suppression: '%s'\n",
+                        keydata.getKey());
                 break;
 
             default:
-                System.out.printf("[MSPClient] case4\n");
+//                PhtNode nd = PhtProtocol.findPhtNode("0000111011000");
+//                for (String key: nd.getKeys()) {
+//                    System.out.printf("'%s' -> '%s'\n",
+//                            nd.getLabel(), key);
+//                }
 
-                Stats st = Stats.getInstance();
+                simulation();
 
-                st.removeLast();
-                st.printAll();
+                List<String> keys = new LinkedList<String>();
+                for (PhtData kd: this.kdata) {
+                    keys.add(kd.getKey());
+                }
+                PhtUtil.checkTrie(this.kdata, keys, new LinkedList<String>());
+//                PhtUtil.checkTrie(this.kdata, new LinkedList<String>(), keys);
+
                 return true;
+        }
+
+        if (this.next < this.kdata.size()) {
+            this.next++;
         }
 
         return false;
     }
 
-    public static void lock() {
-        exe = false;
-    }
-
-    public static void release() {
-        exe = true;
-    }
-
-    public static void retry (long id) {
-
-    }
-
     @Override
     public void responseOk(long requestId, int res) {
+        System.out.printf("[MSPClientEx] responseOk <> requestId: %d <> res: %d\n",
+                requestId, res);
+
+        this.nbResponses--;
     }
 
     @Override
@@ -167,14 +164,16 @@ public class MSPClientEx implements Control, Client {
         if (data instanceof  Integer) {
             res = (Integer) data;
         } else {
-            System.out.println("::MSPClient:: responseValue error: "
+            System.out.println("::MSPClientEx:: responseValue error: "
                     + data.getClass().getName());
         }
 
         if (res == PhtUtil.keyToData(key)) {
-            System.out.println("::MSPClient:: responseValue correct !");
+            System.out.printf("::MSPClientEx:: responseValue correct ! ('%s')\n",
+                    key);
+            this.nbResponses--;
         } else {
-            System.out.printf("::MSPClient:: responseValue error: %d != %d\n",
+            System.out.printf("::MSPClientEx:: responseValue error: %d != %d\n",
                     res, PhtUtil.keyToData(key));
         }
     }
@@ -188,4 +187,21 @@ public class MSPClientEx implements Control, Client {
         }
     }
 
+    @Override
+    public void splitOk() {
+        this.nbResponses--;
+    }
+
+    @Override
+    public void mergeOk () {
+    }
+
+    private void simulation () {
+        Stats st = Stats.getInstance();
+
+        st.curr().start();
+        st.printAll();
+
+        this.statsDone = true;
+    }
 }
