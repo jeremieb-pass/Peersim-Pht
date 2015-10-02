@@ -41,6 +41,8 @@ thus avoiding extra Dht routing.
 PeerSim has additional packages, one of them being the MSPastry protocol. 
 We provide some classes in the peersim.dht package to run simulations with this Dht.
 
+The mspastry package seems to have a little bug, the protocol id variable is not initialized correctly: the value is still 0 when the simulation really starts, and the simulation crashes immediatly. To avoid this I added a little method in mspastry (quick fix): setMspastryId. I have sent an email to one of the authors of mspatry but I still have no response.
+
 ### PeerSim configuration file
 
 You will find five different parameters for the PhtProtocol in the configuration file:
@@ -52,6 +54,10 @@ You will find five different parameters for the PhtProtocol in the configuration
 5. Type of range query for the simulation ("seq" for sequential, everything else for parallel).
 
 ## Project status
+
+### MSPastry
+
+The mspastry package seems to have another problem: the routing part. The implementation does not allow replication, hence the network must be static. Lots of message with the same recipient should be received by only one Node, which does not always happen.
 
 ### Tests
 
