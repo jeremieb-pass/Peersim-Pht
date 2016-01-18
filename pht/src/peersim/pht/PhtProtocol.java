@@ -368,10 +368,12 @@ public class PhtProtocol implements EDProtocol {
     /* _______________________________          _____________________________ */
     /* _______________________________ Initiate _____________________________ */
 
+    /**
+     * Call sendInit during PeerSim's initialization phase to create the
+     * PhtNode root.
+     */
     public void sendInit(String recipient) {
-        PhtMessage message;
-
-        message = new PhtMessage(PhtMessage.INIT, this.node, "", 0, null);
+        PhtMessage message = new PhtMessage(PhtMessage.INIT, this.node, "", 0, null);
         this.dht.send(message, recipient);
     }
 
