@@ -15,7 +15,6 @@ import peersim.pht.state.PhtNodeState;
 import peersim.pht.statistics.Stats;
 
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
@@ -49,12 +48,14 @@ public class PhtProtocol implements EDProtocol {
     public static int D;
     public static int B;
 
+    /*
+     * Different steps and operation.
+     * Only one insertion can happen at a time, since the data to be inserted
+     * is stored.
+     */
     private static final int PHT_INIT        = 0;
     private static final int PHT_INSERTION1  = 1;
     private static final int PHT_INSERTION2  = 2;
-    private static final int PHT_SUPPRESSION = 3;
-    private static final int PHT_LOOKUP      = 4;
-    private static final int PHT_RANGE_QUERY = 5;
 
     // PhtProtocol's state
     private int state;
@@ -241,14 +242,11 @@ public class PhtProtocol implements EDProtocol {
      * @return The Id of the request
      */
     public long suppression(String key) {
-        if (this.state != PHT_INIT) {
-            return -(this.state);
-        } else if (! PhtProtocol.init) {
+        if (! PhtProtocol.init) {
             return -1;
         }
 
         nextId++;
-
         log( String.format("((%d)) suppression (%s)    [%d]\n",
                 nextId, key, this.node.getID()) );
 
@@ -264,13 +262,9 @@ public class PhtProtocol implements EDProtocol {
     public long query(String key) {
         if (! PhtProtocol.init) {
             return -1;
-        } else if (this.state != PHT_INIT) {
-            return -1;
         }
 
         nextId++;
-        this.state = PHT_LOOKUP;
-
         log( String.format("((%d)) query (%s)    [%d]\n",
                 nextId, key, this.node.getID()) );
 
@@ -293,7 +287,6 @@ public class PhtProtocol implements EDProtocol {
         }
 
         nextId++;
-        this.state   = PHT_RANGE_QUERY;
         this.rqTotal = 0;
         this.rqCount = 0;
 
@@ -1849,17 +1842,16 @@ public class PhtProtocol implements EDProtocol {
         stats.curr().incInsert();
 
         this.state = PHT_INIT;
-        client.responseOk(id, res);
+        PhtProtocol.client.responseOk(id, res);
     }
 
     /**
      * Tell the client if the suppression has been done.
      * @param message Message to process
-     * @throws WrongStateException
      * @throws BadAckException
      */
     private void processAck_Suppression (PhtMessage message)
-            throws WrongStateException, BadAckException {
+            throws BadAckException {
         boolean ok;
         long id;
         int res;
@@ -1883,8 +1875,8 @@ public class PhtProtocol implements EDProtocol {
         // Statistics
         stats.curr().incDelete();
 
-        this.state = PHT_INIT;
-        client.responseOk(id, res);
+        PhtProtocol.client.responseOk(id, res);
+        System.out.println("Ack_Suppression res: " + res);
     }
 
     /* :::::::::: SPLIT ::::::::: */
