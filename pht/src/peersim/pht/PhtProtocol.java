@@ -119,6 +119,8 @@ public class PhtProtocol implements EDProtocol {
      */
     private static Map<String, Long> allPhtNodes;
 
+    private static boolean stopOnRouteFail;
+
     /* __________ Delay for messages __________ */
 
     private static short RETRY_FACTOR;
@@ -206,6 +208,9 @@ public class PhtProtocol implements EDProtocol {
 
         // Tests
         allPhtNodes = new HashMap<String, Long>();
+
+        // Stop when a dht routing has occurred ?
+        stopOnRouteFail = Configuration.getBoolean(prefix + ".routeFail");
 
         // Logs
         if (logValue.equals("on")) {
