@@ -66,7 +66,7 @@ public class PhtProtocol implements EDProtocol {
     // Number of response for a range query
     private long rqTotal = 0;
 
-    // prefix used by PeerSim
+    // Prefix used by PeerSim
     private static String prefix;
 
     /* __________ Log __________ */
@@ -90,7 +90,7 @@ public class PhtProtocol implements EDProtocol {
     // Every time this Node is the destination for an operation
     private long usageDest;
 
-    /* The dht provides the basic operation that we need */
+    // The dht provides the basic operation that we need
     private DhtInterface dht;
 
     /* __________ Exception handler __________ */
@@ -106,6 +106,7 @@ public class PhtProtocol implements EDProtocol {
      * Set the exception handler in the configuration file.
      */
     private PhtExceptionHandler pehandler;
+
     /* __________ Tests __________ */
 
     /*
@@ -114,7 +115,7 @@ public class PhtProtocol implements EDProtocol {
      * the message: if the destination does not contain a PhtNode which exists,
      * there is a problem.
      * This will arrive sooner or later when using the mspastry package as a
-     * dht with the the test branch.
+     * dht.
      * For more information, please checkout Pht's documentation.
      */
     private static Map<String, Long> allPhtNodes;
@@ -201,26 +202,16 @@ public class PhtProtocol implements EDProtocol {
 
         this.state = PHT_INIT;
         phtid      = CommonState.getPid();
-        this.nodes = Collections.synchronizedMap(new HashMap<String, PhtNode>());
-
-        // Client
-        client = ClientInterlocutor.getInstance();
+        this.nodes = new HashMap<>();
 
         // Tests
-        allPhtNodes = new HashMap<String, Long>();
+        allPhtNodes = new HashMap<>();
 
         // Stop when a dht routing has occurred ?
         stopOnRouteFail = Configuration.getBoolean(prefix + ".routeFail");
 
         // Logs
         if (logValue.equals("on")) {
-            File old  = new File("phtprotocol.log.old");
-            File path = new File("phtprotocol.log");
-
-            if ( path.exists() ) {
-                path.renameTo(old);
-            }
-
             logWriter = new BufferedWriter(new FileWriter("phtprotocol.log", false));
         }
     }
