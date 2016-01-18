@@ -93,6 +93,19 @@ public class PhtProtocol implements EDProtocol {
     /* The dht provides the basic operation that we need */
     private DhtInterface dht;
 
+    /* __________ Exception handler __________ */
+
+    /**
+     * Handle Pht exceptions.
+     */
+    public interface PhtExceptionHandler {
+        void handle(PhtException pe);
+    }
+
+    /*
+     * Set the exception handler in the configuration file.
+     */
+    private PhtExceptionHandler pehandler;
     /* __________ Tests __________ */
 
     /*
@@ -3274,6 +3287,24 @@ public class PhtProtocol implements EDProtocol {
     private short delay() {
         delay = (short) ((delay + 1) % MAX_DELAY);
         return 0;
+
+    /* ______________________________            ____________________________ */
+    /* ______________________________ Exceptions ____________________________ */
+
+    /**
+     * Handle a PhtException.
+     * If a handler has been set, call its handle method. Otherwise, the
+     * default behaviour is print the stack trace and exit.
+     * @param pe Exception thrown
+     */
+    public void handleException(PhtException pe) {
+        flush();
+        if (this.pehandler != null) {
+            this.pehandler.handle(pe);
+        } else {
+            pe.printStackTrace();
+            interrupt();
+        }
     }
 
     /* ____________________________               ___________________________ */
