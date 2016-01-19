@@ -79,6 +79,9 @@ public class PhtProtocol implements EDProtocol {
      */
     private static BufferedWriter logWriter;
 
+    // To log or not to log ?
+    private static boolean logValue;
+
     /* __________ Statistics __________ */
 
     // Global statistics
@@ -180,7 +183,7 @@ public class PhtProtocol implements EDProtocol {
      * @throws IOException
      */
     public PhtProtocol(String prefix) throws IOException {
-        String logValue = Configuration.getString(prefix + ".log");
+        logValue = Configuration.getBoolean(prefix + ".log");
         PhtProtocol.prefix = prefix;
 
         PhtProtocol.B = Configuration.getInt(prefix + "." + "B");
@@ -211,7 +214,7 @@ public class PhtProtocol implements EDProtocol {
         stopOnRouteFail = Configuration.getBoolean(prefix + ".routeFail");
 
         // Logs
-        if (logValue.equals("on")) {
+        if (logValue) {
             logWriter = new BufferedWriter(new FileWriter("phtprotocol.log", false));
         }
     }
@@ -496,12 +499,11 @@ public class PhtProtocol implements EDProtocol {
      */
     private void sendRetry (Node initiator, long id, String label,
                             PhtNodeState state, boolean isLeaf, int op) {
-        PhtMessage message;
 
         log( String.format("\n[sendRetry] initiator: %d <> id: %d <> label: '%s' [node's state: %s][isLeaf: %b][op: %d]\n\n",
                 initiator.getID(), id, label, state, isLeaf, op) );
 
-        message = new PhtMessage(PhtMessage.RETRY, this.node, label, id, op);
+        PhtMessage message = new PhtMessage(PhtMessage.RETRY, this.node, label, id, op);
         EDSimulator.add(MAX_DELAY * RETRY_FACTOR, message, initiator, phtid);
     }
 
@@ -940,7 +942,7 @@ public class PhtProtocol implements EDProtocol {
      * @param message Message with the father's node (PeerSim)
      * @param pml The son's label
      */
-    private void processSplit(PhtMessage message, PMLookup pml) throws SplitException, InitiatorException {
+    private void processSplit(PhtMessage message, PMLookup pml) throws SplitMergeException, InitiatorException {
         String label;
         PhtNode node;
         NodeInfo ni;
@@ -949,7 +951,7 @@ public class PhtProtocol implements EDProtocol {
         node  = this.nodes.get(label);
 
         if (node != null) {
-            throw new SplitException( String.format("((%d)) processSplit <> '%s'\n",
+            throw new SplitMergeException( String.format("((%d)) processSplit <> '%s'\n",
                     message.getId(), node.getLabel()) );
         }
 
@@ -996,11 +998,11 @@ public class PhtProtocol implements EDProtocol {
      * Get new previous and next leaf. Ack to the father to get data.
      * @param message Message with next and previous leaves
      * @throws PhtNodeNotFoundException,
-     * @throws SplitException
+     * @throws SplitMergeException
      * @throws InitiatorException
      */
     private void processSplitLeaves(PhtMessage message, PMLookup pml)
-            throws PhtNodeNotFoundException, SplitException, InitiatorException {
+            throws PhtNodeNotFoundException, SplitMergeException, InitiatorException {
         String label;
         PhtNode node = null;
         NodeInfo[]  info;
@@ -1047,7 +1049,7 @@ public class PhtProtocol implements EDProtocol {
                     message.getType(), node.getLabel()));
 
         } else {
-            throw new SplitException("processSplitLeaves <> " + pml.getLess().getClass().getName()
+            throw new SplitMergeException("processSplitLeaves <> " + pml.getLess().getClass().getName()
                     + "' <> Initiator's label: '" + message.getInitiatorLabel() + "'");
         }
 
@@ -1065,10 +1067,10 @@ public class PhtProtocol implements EDProtocol {
      * Retrieve the data from the message and insert it into the son
      * @param message Message with all the information
      * @throws PhtNodeNotFoundException
-     * @throws PhtNodeNotFoundException, SplitException
+     * @throws PhtNodeNotFoundException, SplitMergeException
      */
     private void processSplitData(PhtMessage message, PMLookup pml)
-            throws PhtNodeNotFoundException, SplitException, InitiatorException {
+            throws PhtNodeNotFoundException, SplitMergeException, InitiatorException {
         String label;
         PhtNode node;
         List<PhtData> data;
@@ -1100,7 +1102,7 @@ public class PhtProtocol implements EDProtocol {
                     message.getId(), message.getInitiator().getID(), message.getInitiatorLabel(),
                     message.getType(), label, data.size(), this.node.getID()));
         } else {
-            throw new SplitException("processSplitData <> "
+            throw new SplitMergeException("processSplitData <> "
                     + pml.getLess().getClass().getName()
                     + " <> pml.getDestLabel: '" + pml.getDestLabel()
                     + "' <> pml.getKey: '" + pml.getKey()
@@ -1160,16 +1162,16 @@ public class PhtProtocol implements EDProtocol {
      * @param message Message with all the information needed
      * @param pml PMLookup that was inside that message that has already been
      *            extracted in the processEvent method
-     * @throws SplitException
+     * @throws SplitMergeException
      */
-    private void processMerge(PhtMessage message, PMLookup pml) throws SplitException {
+    private void processMerge(PhtMessage message, PMLookup pml) throws SplitMergeException {
         String label;
         PhtNode node;
 
         label = pml.getDestLabel();
         node  = this.nodes.get(label);
         if (node == null) {
-            throw new SplitException("processMerge node null\n"
+            throw new SplitMergeException("processMerge node null\n"
                     + " <> label: " + pml.getDestLabel() + "\n"
                     + " <> key: " + pml.getKey());
         }
@@ -1200,9 +1202,9 @@ public class PhtProtocol implements EDProtocol {
      * @param message Request message
      * @param pml PMLookup that was inside that message that has already been
      *            extracted in the processEvent method
-     * @throws SplitException
+     * @throws SplitMergeException
      */
-    private void processMergeLeaves(PhtMessage message, PMLookup pml) throws SplitException {
+    private void processMergeLeaves(PhtMessage message, PMLookup pml) throws SplitMergeException {
         String label;
         PhtNode node;
         NodeInfo leaf;
@@ -1210,7 +1212,7 @@ public class PhtProtocol implements EDProtocol {
         label = pml.getDestLabel();
         node  = this.nodes.get(label);
         if (node == null) {
-            throw new SplitException("processMergeLeaves <> '" + label + "' ");
+            throw new SplitMergeException("processMergeLeaves <> '" + label + "' ");
         }
 
         if (label.charAt(label.length() - 1) == '0') {
@@ -1232,7 +1234,7 @@ public class PhtProtocol implements EDProtocol {
         EDSimulator.add(delay(), message, message.getInitiator(), phtid);
     }
 
-    private void processMergeData(PhtMessage message, PMLookup pml) throws SplitException {
+    private void processMergeData(PhtMessage message, PMLookup pml) throws SplitMergeException {
         String label;
         PhtNode node;
         List<PhtData> kdata;
@@ -1240,7 +1242,7 @@ public class PhtProtocol implements EDProtocol {
         label = pml.getDestLabel();
         node = this.nodes.get(label);
         if (node == null) {
-            throw new SplitException("processMergeData <> '" + label + "' ");
+            throw new SplitMergeException("processMergeData <> '" + label + "' ");
         }
 
         kdata = node.getDKeys();
@@ -1266,9 +1268,9 @@ public class PhtProtocol implements EDProtocol {
      * @param message Request message
      * @param pml PMLookup that was inside that message that has already been
      *            extracted in the processEvent method
-     * @throws SplitException
+     * @throws SplitMergeException
      */
-    private void processMergeDone(PhtMessage message, PMLookup pml) throws SplitException {
+    private void processMergeDone(PhtMessage message, PMLookup pml) throws SplitMergeException {
         String label;
         PhtNode node;
 
@@ -1276,7 +1278,7 @@ public class PhtProtocol implements EDProtocol {
         node  = this.nodes.get(label);
 
         if (node == null) {
-            throw new SplitException("processMergeDone node null\n"
+            throw new SplitMergeException("processMergeDone node null\n"
                     + " <> label: " + pml.getDestLabel() + "\n"
                     + " <> key: " + pml.getKey());
         }
@@ -2025,12 +2027,6 @@ public class PhtProtocol implements EDProtocol {
 
         node = this.nodes.get(message.getInitiatorLabel());
         if (node == null) {
-            StringBuilder sb = new StringBuilder(this.nodes.size());
-
-            for (PhtNode nd: this.nodes.values()) {
-                sb.append( nd.toString() );
-            }
-
             throw new PhtNodeNotFoundException("processAck_Merge "
                     + " <> label: " + pml.getDestLabel()
                     + " <> key: " + pml.getKey());
@@ -2085,7 +2081,6 @@ public class PhtProtocol implements EDProtocol {
 
             EDSimulator.add(delay(), message, pml.getDest(), phtid);
             EDSimulator.add(delay(), restoredMessage, restoredPml.getDest(), phtid);
-
         } else if (node.state.noMerge()) {
 
             if (continueMerge) {
@@ -2117,6 +2112,12 @@ public class PhtProtocol implements EDProtocol {
              */
             node.returnMessage();
             node.state.stopMerge();
+
+        } else {
+            if (! node.storeMessage(message) ) {
+                System.out.printf("((%d)) processAck_Merge :: storeMessage false\n",
+                        message.getId());
+            }
         }
     }
 
@@ -2679,11 +2680,7 @@ public class PhtProtocol implements EDProtocol {
         } catch (PhtException pe) {
             handleException(pe);
         } catch (java.lang.NullPointerException npe) {
-            try {
-                logWriter.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            flush();
         }
     }
 
@@ -2774,11 +2771,7 @@ public class PhtProtocol implements EDProtocol {
         } catch (PhtException pe) {
             handleException(pe);
         } catch (java.lang.NullPointerException npe) {
-            try {
-                logWriter.flush();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            flush();
         }
     }
 
@@ -2992,19 +2985,23 @@ public class PhtProtocol implements EDProtocol {
      * @param info String to write into the log file
      */
     public static void log (String info) {
-        try {
-            logWriter.write(info);
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.exit(-1);
+        if (logValue) {
+            try {
+                logWriter.write(info);
+            } catch (IOException e) {
+                e.printStackTrace();
+                System.exit(-1);
+            }
         }
     }
 
     public void flush() {
-        try {
-            logWriter.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (logValue) {
+            try {
+                logWriter.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -3046,10 +3043,12 @@ public class PhtProtocol implements EDProtocol {
      * Stop the test and/or the simulation
      */
     public void interrupt() {
-        try {
-            logWriter.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (logValue) {
+            try {
+                logWriter.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
         System.exit(-1);
     }
