@@ -153,52 +153,6 @@ public class PhtUtil {
         return true;
     }
 
-    /**
-     * (Method from MSPastryProtocol.java that we really needed, we just
-     * modified 'mspatryid' to 'id' - which is a new parameter)
-     *
-     * given one nodeId, it search through the network its node reference,
-     * by performing binary search (we concern about the ordering of the
-     * network).
-     * @param searchNodeId BigInteger
-     * @return Node
-     */
-    public static Node nodeIdtoNode(BigInteger searchNodeId, int id) {
-        if (searchNodeId==null) return null;
-
-        int inf = 0;
-        int sup = Network.size() - 1;
-        int m;
-
-        while (inf <= sup) {
-            m = (inf + sup) / 2;
-
-            BigInteger mId = ((MSPastryProtocol) Network.get(m).getProtocol(id)).nodeId;
-
-            if (mId.equals(searchNodeId))
-                return Network.get(m);
-
-            if (mId.compareTo(searchNodeId) < 0)
-                inf = m + 1;
-            else
-                sup = m - 1;
-        }
-
-        /**
-         * La ricerca binaria � veloce ed efficiente, ma qualche volta pu� capitare che l'array dei
-         * nodi di Network non sia ordinato, quindi si applica ora la ricerca sequenziale.
-         * Se nemmeno la ricerca sequenziale trova il nodo cercato, viene ritornato null
-         */
-        BigInteger mId;
-        for (int i= Network.size()-1; i >= 0 ; i--) {
-            mId = ((MSPastryProtocol) Network.get(i).getProtocol(id)).nodeId;
-            if  (mId.equals(searchNodeId))
-                return Network.get(i);
-        }
-
-        return null;
-    }
-
     public static byte[] hashMe(String str) {
         String res;
 
