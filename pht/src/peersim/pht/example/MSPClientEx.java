@@ -30,11 +30,26 @@ public class MSPClientEx implements Control, Client {
     // End with INSERT/REMOVE/QUERY/RQUERY
     private int endsWith;
 
+    /* ------------------------------- Insert ------------------------------- */
+
     // List of (key, data) couples for the simulation
     private LinkedList<PhtData> phtData;
 
     // Inserted (key, data). Useful for dealing with retries.
     private Map<Long, PhtData> inserted;
+
+    // Randomly generated keys
+    private List<String> keys;
+
+    /* ------------------------------- Remove ------------------------------- */
+
+    // Removed (key, data). Needed for the verification part.
+    private Map<Long, String> removed;
+
+    // Removed keys
+    private ArrayList<String> rmKeys;
+
+    /* ---------------------------- Remove/query ---------------------------- */
 
     // Temporary list of keys
     private Deque<String> tmpDeque;
@@ -42,14 +57,18 @@ public class MSPClientEx implements Control, Client {
     // Temporary map of removed/searched keys
     private Map<Long, String> tmpMap;
 
-    // Change operation (insert, remove, query...)
-    private int nextOp;
+    /* ---------------------------- Range query ----------------------------- */
+
+    // Store every (key, data) received by a range query
+    private Map<Long, List<PhtData>> rQueryMap;
+
+    /* ---------------------------- Information ----------------------------- */
 
     // Count the number of response received
     private int responseCount;
 
-    // Randomly generated keys
-    private ArrayList<String> genKeys;
+    // Change operation (insert, remove, query...)
+    private int currOp;
 
     // Maximum number of keys to insert
     private int maxKeys;
@@ -81,16 +100,20 @@ public class MSPClientEx implements Control, Client {
         /* Initialization */
 
         simulation = false;
-        nextOp     = 0;
+        currOp     = 0;
         tmpDeque   = new LinkedList<>();
         phtData    = new LinkedList<>();
         inserted   = new HashMap<>();
+        removed    = new HashMap<>();
         tmpMap     = new HashMap<>();
-        genKeys = PhtUtil.genKeys(len, shuffle);
+        rQueryMap  = new HashMap<>();
+        List<String> genKeys = PhtUtil.genKeys(len, shuffle);
+        keys       = new ArrayList<>(maxKeys < genKeys.size() ? maxKeys : genKeys.size());
         for (int i = 0; (i < maxKeys) && (i < genKeys.size()); i++) {
             String key = genKeys.get(i);
             int data   = Integer.parseInt(key, 2);
             phtData.add( new PhtData(key, data) );
+            keys.add(key);
             responseCount++;
         }
 
@@ -115,24 +138,22 @@ public class MSPClientEx implements Control, Client {
      */
     @Override
     public boolean execute() {
-        pht.flush();
-
         if ( (CommonState.getPhase() == CommonState.POST_SIMULATION) || (nextOp()) ) {
             simulation();
             return true;
         }
 
-        switch(nextOp) {
+        switch(currOp) {
             case INSERT:
                 PhtData data = phtData.peekFirst();
                 if (data != null) {
-                    System.out.printf("((MSPClientEx)) {{execute}} (insert) key : %s (%d / %d)",
-                            data.getKey(), maxKeys - phtData.size(), maxKeys);
                     long id = pht.insertion(data.getKey(), data.getData());
                     if (id >= 0) {
                         inserted.put(id, data);
                         phtData.removeFirst();
                     }
+                    System.out.printf("((MSPClientEx)) {{execute}} (insert) key : %s (%d / %d) <> id: %d",
+                            data.getKey(), maxKeys - phtData.size(), maxKeys, id);
                 }
                 break;
 
@@ -143,13 +164,13 @@ public class MSPClientEx implements Control, Client {
                     long id = pht.suppression(key);
                     if (id >= 0) {
                         tmpMap.put(id, key);
+                        removed.put(id, key);
                         tmpDeque.removeFirst();
                     }
                 }
                 break;
 
             case QUERY:
-                System.out.println("((MSPClientEx)) {{execute}} set size: " + tmpDeque.size() + ", rc: " + responseCount);
                 key = tmpDeque.peekFirst();
                 if (key != null) {
                     System.out.println("((MSPClientEx)) {{execute}} (query) key : " + key + ", rc: " + responseCount);
@@ -166,22 +187,23 @@ public class MSPClientEx implements Control, Client {
                 String key1 = randomKey();
                 String key2 = randomKey();
 
-                if (Long.parseLong(key1) > Long.parseLong(key2)) {
+                responseCount--;
+                if (Long.parseLong(key1) < Long.parseLong(key2)) {
                     id = pht.rangeQuery(key1, key2);
-                    System.out.println("((MSPClientEx)) {{execute}} (rquery) keyMin : " + key1
-                            + ", keyMax: " + key2
-                            + ", id: " + id);
+                    System.out.printf("((MSPClientEx)) {{execute}} (rquery) keyMin %s, keyMax %s, id %d, rc %d\n",
+                            key1, key2, id, responseCount);
                 } else {
                     id = pht.rangeQuery(key2, key1);
-                    System.out.println("((MSPClientEx)) {{execute}} (rquery) keyMin : " + key2
-                            + ", keyMax: " + key1
-                            + ", id: " + id);
+                    System.out.printf("((MSPClientEx)) {{execute}} (rquery) keyMin %s, keyMax %s, id %d, rc %d\n",
+                            key2, key1, id, responseCount);
                 }
                 break;
 
 
             default:
-                simulation();
+                if (responseCount == 0) {
+                    simulation();
+                }
                 return true;
         }
 
@@ -192,30 +214,22 @@ public class MSPClientEx implements Control, Client {
 
     @Override
     public void responseOk(long requestId, int ok) {
+        System.out.println("((MSPClientEx)) {{responseOk}} ok: " + ok + ", rc: " + responseCount);
         if (ok == 0) {
             responseCount--;
         } else if (ok == PhtMessage.RETRY) {
-            if (nextOp == INSERT) {
+            if (currOp == INSERT) {
                 PhtData data = inserted.get(requestId);
                 phtData.addFirst(data);
             } else {
                 tmpDeque.addLast( tmpMap.get(requestId) );
             }
         }
-
-        if (nextOp > INSERT) {
-            System.out.println("((MSPClientEx)) {{responseOk}} count: " + responseCount
-                    + ", ok: " + ok);
-        }
-
-        execute();
     }
 
     @Override
     public void responseValue(long requestId, String key, Object data) {
-        System.out.println("((MSPClientEx)) {{responseValue}} (rv) rid : " + requestId);
-
-        if (nextOp == QUERY) {
+        if (currOp == QUERY) {
             responseCount--;
             return;
         }
@@ -238,18 +252,23 @@ public class MSPClientEx implements Control, Client {
     }
 
     @Override
-    public void responseList(long requestId, List<PhtData> resp) {
-        responseCount--;
+    public void responseList(long requestId, List<PhtData> resp, boolean end) {
+        List<PhtData> tmp = rQueryMap.get(requestId);
+        if ( (! resp.isEmpty()) && (tmp != null) ) {
+            tmp.addAll(resp);
+            rQueryMap.put(requestId, tmp);
+        }
     }
 
     @Override
     public void splitOk() {
         responseCount--;
+        System.out.println("((MSPClientEx)) {{splitOk}} rc: " + responseCount);
     }
 
     @Override
     public void mergeOk() {
-//        responseCount--;
+
     }
 
     @Override
@@ -262,7 +281,7 @@ public class MSPClientEx implements Control, Client {
     /* ---------------------------------------------------------------------- */
 
     /**
-     * Increment nextOp if no more response left.
+     * Increment currOp if no more response left.
      * @return true if the simulation ends now, false otherwise.
      */
     private boolean nextOp() {
@@ -270,17 +289,16 @@ public class MSPClientEx implements Control, Client {
 
         if (responseCount == 0) {
             stats.curr().start();
-            if (nextOp < endsWith) {
+            if (currOp < endsWith) {
                 stats.newPhase();
-                nextOp++;
+                currOp++;
             } else {
                 return true;
             }
 
-            int count = (maxKeys / 2) + 1;
+            int count = (maxKeys / (2 * currOp)) + 1;
             responseCount = count;
             setRandomKeys(count);
-
         }
 
         return false;
@@ -292,8 +310,28 @@ public class MSPClientEx implements Control, Client {
 
             st.curr().start();
             st.printAll();
+
+            PhtUtil.checkTrie(keys, rmKeys);
+            PhtUtil.allKeys(keys);
+
             simulation = true;
+            pht.flush();
         }
+    }
+
+    private int countNbKeysPht() {
+        int count = 0;
+        List<Map<String, PhtNode>> nds = PhtUtil.getAllNodes();     // all the PhtNodes
+
+        for (Map<String, PhtNode> map: nds) {
+            for (PhtNode node : map.values()) {
+                if (node.isLeaf()) {
+                    count += node.getKeys().size();
+                }
+            }
+        }
+
+        return count;
     }
 
     /* ------------------------------- Operation ----------------------------- */
@@ -312,9 +350,16 @@ public class MSPClientEx implements Control, Client {
             notBestWayToDoThis.add(pdata.getKey());
         }
 
+        if (currOp == REMOVE) {
+            rmKeys = new ArrayList<>(number);
+        }
         Collections.shuffle(notBestWayToDoThis);
         for (int i = 0; i < number; i++) {
-            tmpDeque.add(genKeys.get(i));
+            tmpDeque.add(keys.get(i));
+
+            if (currOp == REMOVE) {
+                rmKeys.add(keys.get(i));
+            }
         }
     }
 
@@ -325,7 +370,6 @@ public class MSPClientEx implements Control, Client {
     private String randomKey() {
         Random random = new Random();
         int next = Math.abs(random.nextInt());
-        System.out.println("genKeys.size : " + genKeys.size() + ", next: " + next + ", idx: " + next % genKeys.size());
-        return genKeys.get( next % genKeys.size() );
+        return keys.get( next % keys.size() );
     }
 }
