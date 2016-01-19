@@ -7,6 +7,9 @@ import peersim.core.Node;
  * PhtNode maintains on other PhtNodes: there key and and there Node (peersim).
  */
 public class NodeInfo {
+    public static int ARRAY_PREVLEAF = 0;
+    public static int ARRAY_NEXTLEAF = 1;
+
     private String key;
     private Node node;
 
