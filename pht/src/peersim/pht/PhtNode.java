@@ -1,12 +1,10 @@
 package peersim.pht;
 
+import peersim.pht.exceptions.InitiatorException;
 import peersim.pht.messages.PhtMessage;
 import peersim.pht.state.PhtNodeState;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -83,7 +81,7 @@ public class PhtNode {
         this.rson       = new NodeInfo(this.label + "1");
         this.nextLeaf   = new NodeInfo(null);
         this.prevLeaf   = new NodeInfo(null);
-        this.dkeys      = new ConcurrentHashMap<String, Object>(PhtProtocol.B, (float)0.75);
+        this.dkeys      = new ConcurrentHashMap<>(PhtProtocol.B, (float)0.75);
         this.state      = new PhtNodeState();
         this.protocol   = protocol;
         this.leaf       = true;
@@ -111,7 +109,7 @@ public class PhtNode {
      * @return Positive value if a split started, 0 if everything went fine,
      * and a negative value otherwise.
      */
-    public int insert (String key, Object data) {
+    public int insert (String key, Object data) throws InitiatorException {
         int res;
 
         try {
@@ -204,7 +202,7 @@ public class PhtNode {
      * @param key Key to remove with its data
      * @return If everything went fine
      */
-    public boolean remove(String key) {
+    public boolean remove(String key) throws InitiatorException {
         if (this.dkeys.remove(key) != null) {
 
             this.nbKeys--;
@@ -213,7 +211,6 @@ public class PhtNode {
             }
 
             PhtProtocol.log(String.format("((PHTNODE)) key '%s' removed\n", key));
-
             return true;
         }
 
@@ -260,7 +257,7 @@ public class PhtNode {
      */
     public List<PhtData> splitDataLson() {
         int idx = this.label.length();
-        List<PhtData> lson = new LinkedList<PhtData>();
+        List<PhtData> lson = new ArrayList<>(this.dkeys.size());
 
         for (Map.Entry<String, Object> map: this.dkeys.entrySet()) {
             String key   = map.getKey();
@@ -285,7 +282,7 @@ public class PhtNode {
      * @return List of PhtData who will go to the right son
      */
     public List<PhtData> splitDataRson() {
-        List<PhtData> rson = new LinkedList<PhtData>();
+        List<PhtData> rson = new ArrayList<>(this.dkeys.size());
 
         for (Map.Entry<String, Object> map: this.dkeys.entrySet()) {
             int idx      = this.label.length();
@@ -323,7 +320,7 @@ public class PhtNode {
      * @return All the keys and data of this PhtNode
      */
     public List<PhtData> getDKeys() {
-        LinkedList<PhtData> kdata = new LinkedList<PhtData>();
+        List<PhtData> kdata = new ArrayList<>(this.dkeys.size());
 
         for (Map.Entry<String, Object> dkey : this.dkeys.entrySet()) {
             kdata.add( new PhtData(dkey.getKey(), dkey.getValue()) );
