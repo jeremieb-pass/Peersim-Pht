@@ -1,7 +1,9 @@
 package peersim.pht.exceptions;
 
-public class PhtNodeNotFoundException extends Exception {
-
+/**
+ * When a physical machine which was supposed to have a certain PhtNode.
+ */
+public class PhtNodeNotFoundException extends PhtException {
     public PhtNodeNotFoundException(String message) {
         super(message);
     }
