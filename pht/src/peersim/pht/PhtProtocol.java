@@ -1531,42 +1531,13 @@ public class PhtProtocol implements EDProtocol {
                 }
                 break;
 
-            case PhtMessage.SUPRESSION:
-                if (this.state != PHT_SUPPRESSION) {
-                    throw new WrongStateException(
-                            String.format("(%d) processAck_LinLookup %d",
-                                    message.getId(), this.state));
-                } else {
-                    this.state = PHT_INIT;
-                }
-                return;
-
             case PhtMessage.LIN_LOOKUP:
-                if (this.state != PHT_LOOKUP) {
-                    throw new WrongStateException(
-                            String.format("(%d) processAck_LinLookup %d",
-                                    message.getId(), this.state));
-                } else {
-                    long id = message.getId();
-
-                    this.state = PHT_INIT;
-                    client.responseValue(id, pml.getKey(), pml.getLess());
-                }
+                long id = message.getId();
+                client.responseValue(id, pml.getKey(), pml.getLess());
                 return;
-
-            case PhtMessage.BIN_LOOKUP:
-                break;
-
-            case PhtMessage.SEQ_QUERY:
-                break;
-
-            case PhtMessage.PAR_QUERY:
-                break;
 
             default:
-                throw new NotAllowedOperationException(
-                        "processAck_LinLookup " + pml.getOperation()
-                );
+                break;
         }
 
         if (pml.getDest() == null) {
