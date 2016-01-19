@@ -3088,11 +3088,25 @@ public class PhtProtocol implements EDProtocol {
     /* ___________________________               ____________________________ */
     /* ___________________________ Tests methods ____________________________ */
 
-    private void testNullNode(String label) {
+    /**
+     * Test if the PhtNode exists or if we have reached the Pht root.
+     * This method is used by methods when they have not found the destination
+     * PhtNode. If there has been a routing error, the message might have been
+     * arrived on the wrong Node.
+     * @param label destination label
+     * @param message message with basic information for the logs
+     */
+    private void testNullNode(String label, PhtMessage message) {
         if ( (label.equals("")) || (allPhtNodes.get(label) != this.node.getID()) ) {
-            System.err.printf("fatal: PhtNode '%s' exists on node %d (currently on node %d)\n",
+            System.err.printf("((%d)) [type %d] [dest %s] fatal: PhtNode '%s' exists on node %d (currently on node %d)\n",
+                    message.getId(), message.getType(), message.getInitiatorLabel(),
                     label, allPhtNodes.get(label), this.node.getID());
-            interrupt();
+
+            if (stopOnRouteFail) {
+                stats.end();
+                stats.printAll();
+                interrupt();
+            }
         }
     }
 
