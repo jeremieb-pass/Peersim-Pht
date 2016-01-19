@@ -7,7 +7,7 @@ package peersim.pht.statistics;
  *     (PhtNodes, Nodes, Range queries, Insert/delete, Split/Merge).
  * </p>
  */
-public class AsciiStats {
+class AsciiStats {
 
     public static final String toBoldlyGo =
                     "\n\n---------------------------------------------------------------------------------------\n" +
@@ -69,6 +69,14 @@ public class AsciiStats {
                     " | || '_ \\/ __|/ _ \\ '__| __|   / /  | | | |/ _ \\ |/ _ \\ __/ _ \\\n" +
                     " | || | | \\__ \\  __/ |  | |_   / /   | |_| |  __/ |  __/ ||  __/\n" +
                     "|___|_| |_|___/\\___|_|   \\__| /_/    |____/ \\___|_|\\___|\\__\\___|\n";
+
+    public static final String queries =
+            "\n _____                 _           \n" +
+                    "|  _  |               (_)          \n" +
+                    "| | | |_   _  ___ _ __ _  ___  ___ \n" +
+                    "| | | | | | |/ _ \\ '__| |/ _ \\/ __|\n" +
+                    "\\ \\/' / |_| |  __/ |  | |  __/\\__ \\\n" +
+                    " \\_/\\_\\\\__,_|\\___|_|  |_|\\___||___/\n";
 
     public static final String splitMerge =
             "\n ____        _ _ _        __                                \n" +
