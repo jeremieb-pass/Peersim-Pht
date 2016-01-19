@@ -2930,21 +2930,9 @@ public class PhtProtocol implements EDProtocol {
 
                 case PhtMessage.NO_MERGE:
                     break;
-
-                default:
-                    System.err.println("@@@@@ PHT processEvent: sorry only insertion for the " +
-                            "moment "
-                            + message.getType());
-
             }
-        } catch (NoPMLookupException npmle) {
-            npmle.printStackTrace();
-        } catch (PhtNodeNotFoundException pnfe) {
-            pnfe.printStackTrace();
-        } catch (CantSplitException cse) {
-            cse.printStackTrace();
-        } catch (NoDataSplitData ndsde) {
-            ndsde.printStackTrace();
+        } catch (PhtException pe) {
+            handleException(pe);
         } catch (java.lang.NullPointerException npe) {
             try {
                 logWriter.flush();
@@ -3037,21 +3025,9 @@ public class PhtProtocol implements EDProtocol {
                 case PhtMessage.ACK_PAR_QUERY_CLIENT_F:
                     processAck_ParQueryClientF(pml);
                     break;
-
-                default:
-                    System.err.println("@@@@@ PHT processAck: sorry only ACK for the moment "
-                            + message.getType());
             }
-        } catch (NoPMLookupException nple) {
-            nple.printStackTrace();
-        } catch (NotAllowedOperationException naoe) {
-            naoe.printStackTrace();
-        } catch (PhtNodeNotFoundException pnfe) {
-            pnfe.printStackTrace();
-        } catch (WrongStateException wse) {
-            wse.printStackTrace();
-        } catch (BadAckException bae) {
-            bae.printStackTrace();
+        } catch (PhtException pe) {
+            handleException(pe);
         } catch (java.lang.NullPointerException npe) {
             try {
                 logWriter.flush();
