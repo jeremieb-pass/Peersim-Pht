@@ -654,9 +654,9 @@ public class PhtProtocol implements EDProtocol {
         label = pml.getDestLabel();
         node  = this.nodes.get(label);
         if (node == null) {
-            // Test if the node do exists but we are on the wrong PhtProtocol
-            // (because of an incorrect dht routing)
-            testNullNode(pml.getDestLabel());
+            // Test if the node do exist and we landed on the wrong
+            // PhtProtocol (because of an incorrect dht routing)
+            testNullNode(pml.getDestLabel(), message);
 
             if (! label.equals("")) {
                 String father = PhtUtil.father(label);
@@ -960,9 +960,9 @@ public class PhtProtocol implements EDProtocol {
         label = pml.getDestLabel();
         node  = this.nodes.get(label);
 
-        // If the node already exists: problem
         if (node != null) {
-            throw new CantSplitException("processSplit <> '" + node.getLabel() + "' ");
+            throw new SplitException( String.format("((%d)) processSplit <> '%s'\n",
+                    message.getId(), node.getLabel()) );
         }
 
         node = new PhtNode(label, this);
@@ -1107,7 +1107,7 @@ public class PhtProtocol implements EDProtocol {
 
         if (pml.getLess() instanceof List) {
 
-            /* Retrieve the data an pass it to the son */
+            // Retrieve the data an pass it to the son
             data = (List<PhtData>) pml.getLess();
             pml.setLess(node.insert(data));
 
@@ -1118,7 +1118,7 @@ public class PhtProtocol implements EDProtocol {
                     message.getType(),
                     label, data.size(), this.node.getID()));
         } else {
-            throw new NoDataSplitData("processSplitData <> "
+            throw new SplitException("processSplitData <> "
                     + pml.getLess().getClass().getName()
                     + " <> pml.getDestLabel: '" + pml.getDestLabel()
                     + "' <> pml.getKey: '" + pml.getKey()
@@ -1126,7 +1126,6 @@ public class PhtProtocol implements EDProtocol {
         }
 
         message.setType(PhtMessage.ACK_SPLIT_DATA);
-
 
         if (message.getInitiator() == null) {
             throw new InitiatorException(message.getId() + " ProcessSplitData");
@@ -1220,9 +1219,9 @@ public class PhtProtocol implements EDProtocol {
      * @param message Request message
      * @param pml PMLookup that was inside that message that has already been
      *            extracted in the processEvent method
-     * @throws CantSplitException
+     * @throws SplitException
      */
-    private void processMergeLeaves(PhtMessage message, PMLookup pml) throws CantSplitException {
+    private void processMergeLeaves(PhtMessage message, PMLookup pml) throws SplitException {
         String label;
         PhtNode node;
         NodeInfo leaf;
@@ -1230,7 +1229,7 @@ public class PhtProtocol implements EDProtocol {
         label = pml.getDestLabel();
         node  = this.nodes.get(label);
         if (node == null) {
-            throw new CantSplitException("processMergeLeaves <> '" + label + "' ");
+            throw new SplitException("processMergeLeaves <> '" + label + "' ");
         }
 
         if (label.charAt(label.length() - 1) == '0') {
@@ -1253,7 +1252,7 @@ public class PhtProtocol implements EDProtocol {
         EDSimulator.add(delay(), message, message.getInitiator(), phtid);
     }
 
-    private void processMergeData(PhtMessage message, PMLookup pml) throws CantSplitException {
+    private void processMergeData(PhtMessage message, PMLookup pml) throws SplitException {
         String label;
         PhtNode node;
         List<PhtData> kdata;
@@ -1261,7 +1260,7 @@ public class PhtProtocol implements EDProtocol {
         label = pml.getDestLabel();
         node = this.nodes.get(label);
         if (node == null) {
-            throw new CantSplitException("processMergeData <> '" + label + "' ");
+            throw new SplitException("processMergeData <> '" + label + "' ");
         }
 
         kdata = node.getDKeys();
@@ -1288,9 +1287,9 @@ public class PhtProtocol implements EDProtocol {
      * @param message Request message
      * @param pml PMLookup that was inside that message that has already been
      *            extracted in the processEvent method
-     * @throws CantSplitException
+     * @throws SplitException
      */
-    private void processMergeDone(PhtMessage message, PMLookup pml) throws CantSplitException {
+    private void processMergeDone(PhtMessage message, PMLookup pml) throws SplitException {
         String label;
         PhtNode node;
 
@@ -1405,8 +1404,7 @@ public class PhtProtocol implements EDProtocol {
      * @param pml Has the new previous leaf
      * @throws PhtNodeNotFoundException
      */
-    private void processUpdatePreviousLeaf(PhtMessage message, PMLookup pml)
-            throws PhtNodeNotFoundException {
+    private void processUpdatePreviousLeaf(PhtMessage message, PMLookup pml) {
         NodeInfo leaf;
         PhtNode node;
 
@@ -1455,10 +1453,9 @@ public class PhtProtocol implements EDProtocol {
      * Update a PhtNode's next leaf
      * @param message Just for the log
      * @param pml Contains the next leaf
-     * @throws PhtNodeNotFoundException
+     * TODO: update comments
      */
-    private void processUpdateNextLeaf(PhtMessage message, PMLookup pml)
-            throws PhtNodeNotFoundException {
+    private void processUpdateNextLeaf(PhtMessage message, PMLookup pml) {
         NodeInfo leaf;
         PhtNode node;
 
@@ -1787,9 +1784,7 @@ public class PhtProtocol implements EDProtocol {
         if (message.getMore() instanceof Boolean) {
             ok = (Boolean) message.getMore();
         } else {
-            throw new BadAckException(
-                    "processAck_Suppression" + message.getMore().getClass().getName()
-            );
+            throw new BadAckException("processAck_Suppression" + message.getMore().getClass().getName());
         }
 
         if (ok) {
@@ -2661,7 +2656,7 @@ public class PhtProtocol implements EDProtocol {
         PhtMessage message;
         PMLookup pml = null;
 
-        /* An event must be a PhtMessage */
+        // An event must be a PhtMessage
         if (event instanceof PhtMessage) {
             message = (PhtMessage) event;
         } else {
