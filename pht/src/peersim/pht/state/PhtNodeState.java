@@ -15,26 +15,26 @@ package peersim.pht.state;
  */
 public class PhtNodeState {
 
-    public static final int STABLE   = 0;
-    public static final int UNSTABLE = 1;
+    private static final int STABLE   = 0;
+    private static final int UNSTABLE = 1;
 
-    public final static int WAITING_SPLIT    = 10;
-    public final static int ACK_SPLIT        = 11;
-    public final static int ACK_SPLIT_LEAVES = 12;
-    public final static int ACK_SPLIT_DATA   = 13;
+    private final static int WAITING_SPLIT    = 10;
+    private final static int ACK_SPLIT        = 11;
+    private final static int ACK_SPLIT_LEAVES = 12;
+    private final static int ACK_SPLIT_DATA   = 13;
 
-    public final static int WAITING_MERGE    = 20;
-    public final static int ACK_MERGE        = 21;
-    public final static int NO_MERGE         = 22;
+    private final static int WAITING_MERGE    = 20;
+    private final static int ACK_MERGE        = 21;
+    private final static int NO_MERGE         = 22;
     public final static int ACK_MERGE_LEAVES = 23;
-    public final static int MERGE_DONE       = 24;
+    private final static int MERGE_DONE       = 24;
 
-    public final static int WAITING_THREADED_LEAVES = 30;
-    public final static int WAITING_PREV_LEAF       = 31;
-    public final static int WAITING_NEXT_LEAF       = 32;
+    private final static int WAITING_THREADED_LEAVES = 30;
+    private final static int WAITING_PREV_LEAF       = 31;
+    private final static int WAITING_NEXT_LEAF       = 32;
 
-    public final static int ACK_PREV_LEAF = 40;
-    public final static int ACK_NEXT_LEAF = 41;
+    private final static int ACK_PREV_LEAF = 40;
+    private final static int ACK_NEXT_LEAF = 41;
 
     private int state;
     private int lson;
