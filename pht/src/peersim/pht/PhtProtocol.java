@@ -3081,7 +3081,8 @@ public class PhtProtocol implements EDProtocol {
      */
     private short delay() {
         delay = (short) ((delay + 1) % MAX_DELAY);
-        return 0;
+        return delay;
+    }
 
     /* ______________________________            ____________________________ */
     /* ______________________________ Exceptions ____________________________ */
