@@ -168,15 +168,18 @@ public class PhtUtil {
     }
 
     /**
-     * Generates a random ArrayLists of keys (size: PhtProtocol.D)
-     * @param len Number of bits of each String
+     * Generates a random ArrayLists of keys (size: PhtProtocol.D).
+     * We use an ArrayList because of the call to Collections.shuffle if a
+     * shuffle is requested by the user.
+     * @param len Number of bits of each key
+     * @param shuffle shuffle the key collection ?
      * @return the generated ArrayList
      */
     public static ArrayList<String> genKeys (int len, boolean shuffle) {
         int max = (int) Math.pow(2, len);
         ArrayList<String> res;
 
-        res = new ArrayList<String>(max);
+        res = new ArrayList<>(max);
         for (int i = 0; i < max; i++) {
             StringBuilder sb = new StringBuilder();
             String val = Integer.toBinaryString(i);
@@ -185,7 +188,6 @@ public class PhtUtil {
                 sb.append("0");
             }
             sb.append(val);
-
             res.add(sb.toString());
         }
 
@@ -459,7 +461,7 @@ public class PhtUtil {
      * Return all the PhtNodes across the Network (PeerSim)
      * @return List of maps with all the PhtNodes
      */
-    private static List<Map<String, PhtNode>> getAllNodes() {
+    public static List<Map<String, PhtNode>> getAllNodes() {
         List<Map<String, PhtNode>> res = new LinkedList<Map<String, PhtNode>>();
 
         for (int i = 0; i < Network.size(); i++) {
