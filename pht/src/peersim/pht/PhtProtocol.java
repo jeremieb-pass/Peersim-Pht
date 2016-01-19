@@ -913,19 +913,12 @@ public class PhtProtocol implements EDProtocol {
             throws PhtNodeNotFoundException, InitiatorException {
         int res;
         PhtNode node;
-        node = this.nodes.get(pml.getDestLabel());
-        for (PhtNode nd: this.nodes.values()) {
-            if (nd.getLabel().equals(pml.getDestLabel())) {
-                node = nd;
-                break;
-            }
-        }
 
         log(String.format("((%d)) processInsertion [initiator: '%s'][type: %d] "
                         + "[op: %d][key: '%s']    [%d]\n",
                 message.getId(), message.getInitiator().getID(), message.getType(),
                 pml.getOperation(), pml.getKey(), this.node.getID()));
-
+        node = this.nodes.get(pml.getDestLabel());
         if (node == null) {
             throw new PhtNodeNotFoundException("processInsertion");
         }
@@ -2026,12 +2019,7 @@ public class PhtProtocol implements EDProtocol {
             throw new BadAckException("processAck_SplitData: pml.getLess() -> false ");
         }
 
-        for (PhtNode nd: this.nodes.values()) {
-            if (nd.getLabel().equals(message.getInitiatorLabel())) {
-                node = nd;
-                break;
-            }
-        }
+        node = nodes.get(message.getInitiatorLabel());
         if (node == null) {
             throw new PhtNodeNotFoundException("processAck_SplitData "
                     + " <> label: " + pml.getDestLabel() + "\n"
