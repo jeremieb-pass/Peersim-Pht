@@ -22,52 +22,23 @@
         </a>
     </h1>
     <a href="../../index.html" class="btn">Home</a>
-    <a href="../fr/rapport.html" class="btn">Rapport</a>
-    <a href="documentation.html" class="btn">Documentation</a>
+    <a href="../fr/rapport.html" class="btn">Report</a>
+    <a href="pht_doc.html" class="btn">Documentation</a>
 
     <br />
     <a href="pht_doc.html" class="rapport">Pht</a>
-    <a href="quick_overview.html" class="rapport">Quick overview</a>
     <a href="how_works.html" class="rapport rapport-current">How it works</a>
-    <a href="choices.html" class="rapport">Choices</a>
 </section>
 
-<div id="menu">
-    <ul>
-        <li><a href="#asyn-comm">Asynchronous communications</a>
-            <ol>
-                <li><a href="#asyn-comm-messages">Messages</a></li>
-            </ol>
-        </li>
-        <li><a href="#ext-op">External operations</a>
-            <ol>
-                <li><a href="#ext-op-insertion">Insertion</a></li>
-                <li><a href="#ext-op-delete">Delete</a></li>
-                <li><a href="#ext-op-lookup">Lookup</a></li>
-                <li><a href="#ext-op-rangeq">Range queries</a></li>
-            </ol>
-        </li>
-        <li><a href="#internal-op">Internal operations</a>
-            <ol>
-                <li><a href="#internal-op-split">Split</a></li>
-                <li><a href="#internal-op-merge">Merge</a></li>
-                <li><a href="#internal-op-update">Update</a></li>
-            </ol>
-
-        </li>
-    </ul>
-</div>
-
-<section class="main-content" id="content">
+<section class="main-content">
 
     <p class="resume">
-        We will discuss in this section about how every operation works. We will start with the external operations,
-        the one which a client uses (insert, delete, lookup, range query) with its variants (binary and linear lookups,
-        sequential and parallel range queries). And maintenance operations in the second part, indirectly
-        triggered by a client (split, merge, update number of keys).
+        We will discuss in this section about how every operation works. We will start with how message are structured,
+        , discuss in more detail the client operations (insert, delete, lookup, range query) and the more internal
+        ones: split, merge, number of keys update...and finally look at the Dht interface.
     </p>
 
-    <h2 id="asyn-comm">Asynchronous communications</h2>
+    <h2 id="async-comm-messages">Messages</h2>
     <p>
         Every communication is asynchronous and every message between two (possible) remote machine has an acquittal.
         A message from a Pht node to another is a PhtMessage: this message contains the minimum information such as
@@ -76,8 +47,6 @@
         PMLookup is the one a little bit smaller and PMRangeQuery again a little bit smaller. This system avoids having
         one big type of message with unused fields for the majority of operations.
     </p>
-
-    <h3 id="async-comm-messages">Messages</h3>
 
     <p><b>PhtMessage</b> has the following fields:</p>
     <ol>
@@ -129,9 +98,9 @@
         absence of Dht implementation with data replication on PeerSim's website).
     </p>
 
-    <!-- External operations -->
+    <!-- Client -->
 
-    <h2 id="ext-op">External operations</h2>
+    <h2 id="ext-op">Client</h2>
     <p>
         The overall conduct of an operation goes like this (we do not treat the case of a client outside of the peer to
         peer network network):
@@ -335,6 +304,22 @@
         its ancestors (from his father to the root node).
     </p>
 
+    <h3 id="internal-op-problem">Asynchrony and threaded leaves</h3>
+    <p>
+        A split and a merge implies to send update messages for the threaded leaves. Imagine that a node has to split.
+        His left son will send an update message to the previous leaf (and the right son another to the next leaf).
+        Imagine now, that the previous leaf splits between the first split and the receipt of the update message: it
+        will have to forward the message to its right son. The same kind of problem happens with a merge or a merge and
+        a split, or multiple splits and/or merges...
+    </p>
+    <p>
+        If an internal receives an update message regarding threaded leaves it will be able to forward it to one if its
+        son, using direct communication. With a merge a message can arrive on a leaf that has just merged. With the
+        label of the leaf, it is possible to find its father's label easily, but direct communication is not possible.
+        Therefore, if the dht has some routing problem, the message might be forwarded to the wrong machine (PeerSim
+        Node) and lead to an error.
+    </p>
+
     <!-- Dht interface -->
 
     <h2 id="dht-interface">Dht interface</h2>
@@ -344,14 +329,9 @@
         the implementation, it might be necessary to provide more stuff. This is true for the mspastry protocol from
         PeerSim.
     </p>
-    <ol>
+    <ul>
         <li><span class="code">public void send(PhtMessage message, String dest)</span></li>
-        <li><span class="code">public Object getNodeId()</span></li>
-    </ol>
-    <p>
-        To make a quick comparison with the TCP/IP model, one could say that the Dht is the Link/Internet layers and
-        Pht is the Transport/Application layers.
-    </p>
+    </ul>
 
     <h3 id="dht-interface-pastry">Pastry</h3>
     <p>

@@ -24,8 +24,8 @@
           </a>
       </h1>
         <a href="index.html" class="btn">Home</a>
-        <a href="web/fr/rapport.html" class="btn">Rapport</a>
-        <a href="web/doc/documentation.html" class="btn">Documentation</a>
+        <a href="web/fr/rapport.html" class="btn">Report</a>
+        <a href="web/doc/pht_doc.html" class="btn">Documentation</a>
 
         <br />
         <a href="https://github.com/nongbottom/Peersim-Pht" class="rapport">View project on github</a>
@@ -62,16 +62,15 @@
             <a href="https://www.eecs.berkeley.edu/~sylvia/papers/pht.pdf">the original paper</a>
             .</p>
 
-        <h4>Pht Operations</h4>
+        <h3>Pht Operations</h3>
         <ol>
             <li>Linear lookup
                 <p>a top-down traversal of the prefix tree (trie) which returns the the unique leaf
                     node whose label is a prefix of the given key.</p>
             </li>
 
-            <li>Binary lookup
-                <p>Try different prefix lengths until the required leaf is reached. (not yet
-                    implemented).</p>
+            <li>Binary lookup (not implemented due to problems with mspastry)
+                <p>Try different prefix lengths until the required leaf is reached.</p>
             </li>
 
             <li>Insertion of a key with related split operation.</li>
@@ -82,34 +81,25 @@
                 prefix node of the trie.</li>
         </ol>
 
-        <h4>PeerSim integration</h4>
+        <h3>PeerSim integration</h3>
 
         <p>This Pht implementation can be used with any Distributed hash table as long as an
             interface is provided to enable communication between the concrete implementation of the
             Dht and Pht.</p>
 
-        <h4>Dht interface</h4>
-
-        <p>The peersim.pht.DhtInterface interface contains the three methods needed for an integration
-            with a Dht: </p>
-
-        <ol>
-            <li>`void send(PhtMessage message, String dest)` Send a message to another node of the trie
-                using the Dht.</li>
-            <li>`Object getNodeId()` Id of the current Node (PeerSim node: a physical machine). This id
-                is set by the Dht, not PeerSim. This method is used for debug and logs rather than
-                for real operations.</li>
-            <li>`Node getNode()` Current node (PeerSim node). This method is needed for the beginning of
-                the simulation. This information will be used to enable direct communications between
-                PeerSim nodes, thus avoiding extra Dht routing.</li>
-        </ol>
-
-        <h4>Interface with MSPastry</h4>
+        <h3>Interface with MSPastry</h3>
 
         <p>PeerSim has additional packages, one of them being the MSPastry protocol.
             We provide some classes in the peersim.dht package to run simulations with this Dht.</p>
+        <p>
+            It seems that the mspastry implementation on PeerSim's website has some routing problems. For example, if every
+            node of the network sends a message with the same recipient, you might find that there has been more than one
+            destination node. Since mspastry does not support data replication and works with a static network, this should
+            not happen and has some consequences on what can be done or not. This is why binary search has not been
+            implemented.
+        </p>
 
-        <h4>PeerSim configuration file</h4>
+        <h3>PeerSim configuration file</h3>
 
         <p>You will find five different parameters for the PhtProtocol in the configuration file:</p>
 
@@ -120,24 +110,46 @@
             <li>Logs enabled. Possible values: "on" or anything else to disable this.</li>
             <li>Type of range query for the simulation ("seq" for sequential, everything else for
                 parallel).</li>
+            <li>Maximum delay (each message is virtually sent with a (very) pseudo-random delay)</li>
+            <li>Retry factor (when a message has been stopped, retry the same operation with a Maximum delay * retry factor
+                time)</li>
+            <li>Route fail: continue or stop when a routing error has been detected (true: stop)</li>
         </ol>
 
         <h3>Project status</h3>
 
-        <h4>Tests</h4>
+        <p>
+            Every operation works (except binary search). This first version has one restrictions though: it only works
+            with a static network.
+        </p>
+        <p>
+            Note that this restriction depends on the underlying Dht: data must be replicated to work with a dynamic
+            network. This means that if the Dht implementation does not provide replication, we can not build, test, run a
+            simulation in a dynamic context.
+        </p>
 
-        <p>As for now, tests are run during the simulation. These tests uses Java assertions.</p>
+        <h3>Tests</h3>
 
-        <h4>Statistics</h4>
+        <p>
+            Tests are provided to verify the properties of the Pht:
+        </p>
+        <ol>
+            <li>A leaf is a prefix of every of its keys.</li>
+            <li>Links between leaves must be valid.</li>
+            <li>An  internal node has no keys.</li>
+            <li>An internal node must know the number of keys of it sub-tree.</li>
+            <li>Every key inserted (and not deleted) is in the Pht.</li>
+        </ol>
 
-        <p>At the end of any simulation, the `phtStats()` method is launched. It provides information
-            about:</p>
+        <h3>Statistics</h3>
 
+        <p>
+            Information are gathered during the simulation:
+        </p>
         <ul>
             <li>Number of keys in the Pht</li>
             <li>Number of nodes in the Pht</li>
-            <li>Number of leaves in the requests</li>
-            <li>Number of requests</li>
+            <li>Number of leaves</li>
             <li>Number of leaves with more than B keys</li>
             <li>Pht height</li>
             <li>Minimum height</li>
@@ -145,7 +157,22 @@
             <li>Ten least used nodes</li>
             <li>Ten most loaded leaves</li>
             <li>Ten least loaded leaves</li>
+            <li>Number of insertion, delete, query, range query operations</li>
         </ul>
+
+        <p>
+            The statistics part works with stages. This means that all counters are reset when a new phase starts.
+            This can be helpful to have an idea of the impact of one particular operation for example.
+        </p>
+
+        <h3>Compile and run</h3>
+
+        <p>
+            As PeerSim, this Pht implementation makes use of a Makefile. To compile, simply type <span class="code">
+            make</span>. To run the simulation with the default configuration file, type <span class="code">make
+            run</span>. To clean the .class files, type <span class="code">make clean</span>. To build the javadoc,
+            type <span class="code">make doc</span>.
+        </p>
 
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/nongbottom/Peersim-pht">Peersim-pht</a> is maintained by <a href="https://github.com/nongbottom">nongbottom</a>.</span>
