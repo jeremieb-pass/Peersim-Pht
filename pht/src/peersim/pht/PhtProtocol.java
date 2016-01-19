@@ -1315,6 +1315,8 @@ public class PhtProtocol implements EDProtocol {
                     message.getId(), node.getLabel()) );
         }
         node.clear();
+        nodes.remove(label);
+        allPhtNodes.remove(label);
 
         pml.setLess(true);
         message.setType(PhtMessage.ACK_MERGE_DONE);
