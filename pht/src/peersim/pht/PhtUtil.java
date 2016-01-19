@@ -16,6 +16,9 @@ import java.util.*;
  */
 public class PhtUtil {
 
+    // Error counter for the check part
+    private static int errorCount;
+
     /**
      * Does @param key starts with @param with ?
      * @param key The key
@@ -238,36 +241,44 @@ public class PhtUtil {
 
 
     /**
-     * Get all the PhtNode from all the nodes in the simulation and check if:
-     *
-     * 1/ keys in leaf node starts with the node(s label
-     * 2/ internal nodes has no keys
+     * <p>
+     *     Get all the PhtNode from all the nodes in the simulation and check
+     *     if:
+     * </p>
+     * <ol>
+     *      <li>keys in leaf node starts with the node's label</li>
+     *      <li>internal nodes has no keys</li>
+     * </ol>
+     * @param inserted Inserted keys
+     * @param removed Removed keys
+     * @throws AssertionError
      */
-    public static void checkTrie(List<PhtData> keys,
-                                 List<String> inserted,
-                                 List<String> removed) {
+    public static void checkTrie(Collection<String> inserted,
+                                 Collection<String> removed) throws AssertionError {
         int nullPrev = 0;
         int nullNext = 0;
         int cpt      = 0;
-        int nbKeys   = keys.size();
+        int nbKeys   = inserted.size();
         String startLeaf = null;
-        List<Map<String, PhtNode>> nds  = getAllNodes();
-        HashMap<String, PhtNode> nodes  = new HashMap<String, PhtNode>(nbKeys);
-        HashMap<String, PhtNode> leaves = new HashMap<String, PhtNode>(nbKeys);
+        List<String> keys = new LinkedList<>();                     // keys found in the Pht
+        List<Map<String, PhtNode>> nds  = getAllNodes();            // all the PhtNodes
+        HashMap<String, PhtNode> nodes  = new HashMap<>(nbKeys);    // Internal nodes (Pht)
+        HashMap<String, PhtNode> leaves = new HashMap<>(nbKeys);    // Leaves (Pht)
+
+        // Initialization
+        errorCount = 0;
 
         for (Map<String, PhtNode> map: nds) {
             for (PhtNode node: map.values()) {
 
                 // Add the node to the nodes map
-                assert ! nodes.containsKey(node.getLabel());
+                check(! nodes.containsKey(node.getLabel()), "This Pht node has already been added");
                 nodes.put(node.getLabel(), node);
 
                 if (node.isLeaf()) {
-
-                    System.out.printf("\n[PhtUtil] '%s' isLeaf\n", node.getLabel());
-
                     // Add the leaf to the leaves map
-                    assert ! leaves.containsKey(node.getLabel());
+                    check(! leaves.containsKey(node.getLabel()),
+                            "This leaf should have been discovered previously " + node.getLabel());
                     leaves.put(node.getLabel(), node);
 
                     // Null links
@@ -280,62 +291,50 @@ public class PhtUtil {
                     }
 
                     // A leaf has no sons
-                    assert node.getLson().getNode() == null;
-                    assert node.getRson().getNode() == null;
+                    check(node.getLson().getNode() == null, "A leaf has no left son " + node.getLabel());
+                    check(node.getRson().getNode() == null, "A leaf has no right son " + node.getRson());
 
                     // A leaf's label is a prefix for every of its keys
                     for (String key: node.getKeys()) {
-                        assert startsWith(key, node.getLabel());
+                        check(startsWith(key, node.getLabel()), node.getLabel() + " should be a prefix of " + key);
+                        keys.add(key);
                         cpt++;
-
-//                        System.out.printf("\ncheckTrie :: PhtNode '%s' with key '%s'\n",
-//                                node.getLabel(), key);
                     }
                 } else {
                     // An internal node has no keys
-                    assert node.getDKeys().size() == 0;
+                    check(node.getDKeys().size() == 0, "An internal has no keys " + node.getLabel());
                 }
             }
         }
+
+        /*
+         * Every inserted key must be found, and every key in the Pht must
+         * have been inserted.
+         */
+        inserted.removeAll(removed);
+        check(inserted.containsAll(keys), "Inserted keys does not contain all the keys of the Pht");
+        check(keys.containsAll(inserted), "Keys of the Pht does not contain all the keys inserted");
+        check((nbKeys - removed.size()) == cpt,
+                String.format("%d keys inserted %d removed, and there are %d keys (should be %d)",
+                        nbKeys, removed.size(), cpt, nbKeys - removed.size()));
 
         checkLeaves(leaves, startLeaf);
         if (nodes.size() > 1) {
             checkNodes("", nodes);
         }
 
-        assert nullPrev == 1;
-        assert nullNext == 1;
+        check(nullPrev == 1, "There should be only be one leaf without a predecessor, not " + nullPrev);
+        check(nullNext == 1, "There should be only be one leaf without a successor, not " + nullNext);
 
-        List<String> keysGen = new LinkedList<String>();
-        for (PhtData data: keys) {
-            keysGen.add(data.getKey());
+        if (errorCount > 0) {
+            System.err.println(errorCount + " error(s) detected");
+        } else {
+            System.err.println("Pht check: every thing went fine");
         }
-        for (String key: removed) {
-            keysGen.remove(key);
-        }
-
-        for (String key: inserted) {
-            if (! keysGen.contains(key)) {
-                System.out.printf("1. missing key is '%s'\n", key);
-            }
-        }
-
-        for (String key: keysGen) {
-            if (! inserted.contains(key)) {
-                System.out.printf("2. missing key is '%s'\n", key);
-            }
-        }
-
-        assert inserted.containsAll(keysGen);
-        assert keysGen.containsAll(inserted);
-
-        System.out.printf("nbKeys: %d <> removed.size: %d <> cpt: %d\n",
-                nbKeys, removed.size(), cpt);
-        assert (nbKeys - removed.size()) == cpt;
     }
 
     /**
-     * Check that all links between leaves are OK
+     * Check that all links between leaves are O
      *
      * A leaf with a next leaf must be the previous leaf of this leaf.
      * The route from the most left leaf to the most right leaf must pass
@@ -349,8 +348,8 @@ public class PhtUtil {
 
         int cptOk = 0;
 
-        assert startLeaf != null;
-        assert leaves.size() >= 1;
+        check(startLeaf != null, "There should be a starting leaf");
+        check(leaves.size() >= 1, "There can't be a Pht without at least one leaf");
 
         next = startLeaf;
 
@@ -359,8 +358,11 @@ public class PhtUtil {
             PhtNode curr;
 
             curr = leaves.get(next);
-            assert curr != null;
+            check(curr != null, next + " PhtNode should exist");
 
+            if (curr == null) {
+                break;
+            }
             check.add(curr.getLabel());
 
             if (curr.getNextLeaf().getKey() != null) {
@@ -368,32 +370,8 @@ public class PhtUtil {
                 cptOk++;
 
                 nxtNode = leaves.get( curr.getNextLeaf().getKey() );
-                if( nxtNode == null ) {
-                    PhtNode nd = PhtProtocol.findPhtNode(curr.getNextLeaf().getKey());
-
-                    System.out.printf("\ncheckLeaves :: cptOk: %d :: %d leaves"
-                                    + "\n curr -> '%s'"
-                                    + "\n curr.nextLeaf -> '%s'\n",
-                            cptOk, leaves.size(),
-                            curr.getLabel(),
-                            curr.getNextLeaf().getKey());
-                    if (nd != null) {
-                        System.out.printf("nextLeaf is -----> %s\n\n", nd.toString());
-                    } else {
-                        System.out.printf("nextLeaf does not exist\n\n");
-                    }
-                }
-
-                if( leaves.get(nxtNode.getPrevLeaf().getKey()) != curr ) {
-                    System.out.printf("\ncheckLeaves :: cptOk: %d :: %d leaves"
-                                    + "\n curr -> '%s' :: nxt -> '%s'"
-                                    + "\n :: curr.nextLeaf -> '%s' :: nxt.PrevLeaf -> '%s'\n\n",
-                            cptOk, leaves.size(),
-                            curr.getLabel(), nxtNode.getLabel(),
-                            curr.getNextLeaf().getKey(), nxtNode.getPrevLeaf().getKey());
-                }
-
-                assert leaves.get(nxtNode.getPrevLeaf().getKey()) == curr;
+                check(leaves.get(nxtNode.getPrevLeaf().getKey()) == curr,
+                        curr.getLabel() + " should it successor's predecessor");
             } else {
                 break;
             }
@@ -401,8 +379,8 @@ public class PhtUtil {
             next = nxtNode.getLabel();
         }
 
-        assert leaves.keySet().containsAll(check);
-        assert check.containsAll(leaves.keySet());
+        check(leaves.keySet().containsAll(check), "Some leaves were not part of the the leaf traversal");
+        check(check.containsAll(leaves.keySet()), "Some leaves found in the traversal were not found earlier");
     }
 
     /**
@@ -424,20 +402,37 @@ public class PhtUtil {
         }
         if (! nd.isLeaf()) {
             lson = nodes.get( nd.getLson().getKey() );
-            assert lson != null;
+            check(lson != null, nd.getLabel() + " is not a leaf and therefore should have a left son");
 
             rson = nodes.get( nd.getRson().getKey() );
-            assert rson != null;
+            check(rson != null, nd.getLabel() + " is a not a leaf and therefore should have a right son");
+
+            if ( (lson == null) || (rson == null) ) {
+                return;
+            }
 
             // Number of nodes
-            assert nd.getNbKeys() == (lson.getNbKeys() + rson.getNbKeys());
+            check(nd.getNbKeys() == (lson.getNbKeys() + rson.getNbKeys()),
+                    String.format("An internal counts the leys in its subtree, total: %d, left: %d, right: %d",
+                            nd.getNbKeys(), lson.getNbKeys(), rson.getNbKeys()) );
 
             // nd is the father of his left and right sons
-            assert nd.getLabel().equals(lson.getFather().getKey());
-            assert nd.getLabel().equals(rson.getFather().getKey());
+            check(nd.getLabel().equals(lson.getFather().getKey()),
+                    String.format("%s should be the father of %s instead of %s",
+                            nd.getLabel(), lson.getLabel(), lson.getFather().getKey()));
+            check(nd.getLabel().equals(rson.getFather().getKey()),
+                    String.format("%s should be the father of %s instead of %s",
+                            nd.getLabel(), rson.getLabel(), rson.getFather().getKey()));
 
             checkNodes(lson.getLabel(), nodes);
             checkNodes(rson.getLabel(), nodes);
+        }
+    }
+
+    private static void check(boolean condition, String errMessage) throws AssertionError {
+        if (! condition) {
+            System.err.println("[[ERROR]] " + errMessage);
+            errorCount++;
         }
     }
 
@@ -446,7 +441,7 @@ public class PhtUtil {
      * have been removed)
      * @param keys Keys that have been inserted (and not removed)
      */
-    public static void allKeys(List<String> keys) {
+    public static void allKeys(Collection<String> keys) {
         List<Map<String, PhtNode>> nds = getAllNodes();
         List<String> phtKeys = new ArrayList<String>(keys.size());
 
