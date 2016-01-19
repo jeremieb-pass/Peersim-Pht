@@ -24,17 +24,3 @@ doc:
 clean: 
 	rm -fr classes../peersim-1.0.5/djep-1.0.0.jar
 
-
-
-testNode:
-	javac -sourcepath src -d classes src/peersim/pht/PhtNode.java src/peersim/pht/tests/testPhtData.java src/peersim/pht/tests/testPhtNode.java
-
-runNode:
-	java -cp classes peersim.pht.testsTmp.testPhtNode
-
-
-testProtocol: testNode
-	javac -sourcepath src -d classes src/peersim/pht/PhtProtocol.java src/peersim/pht/tests/testPhtProtocolDHTI.java src/peersim/pht/tests/testPhtProtocol.java
-
-runProtocol:
-	java -cp classes peersim.pht.testsTmp.testPhtProtocol
