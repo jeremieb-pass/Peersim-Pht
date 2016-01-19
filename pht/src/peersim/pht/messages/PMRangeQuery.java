@@ -29,7 +29,7 @@ public class PMRangeQuery {
         this.keyMax = keyMax;
         this.count  = count;
         this.end    = false;
-        this.kdata  = new LinkedList<PhtData>();
+        this.kdata  = new LinkedList<>();
     }
 
     public void add(Collection<? extends  PhtData> kd) {
