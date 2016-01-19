@@ -2368,7 +2368,7 @@ public class PhtProtocol implements EDProtocol {
 
         node = this.nodes.get(message.getInitiatorLabel());
         if (node == null) {
-            testNullNode(message.getInitiatorLabel());
+            testNullNode(message.getInitiatorLabel(), message);
             log( String.format("((%d)) processAck_UpdatePrevLeaf node null :: "
                     + "label: '%s' [%d]\n",
                     message.getId(), message.getInitiatorLabel(), this.node.getID()) );
@@ -2416,7 +2416,7 @@ public class PhtProtocol implements EDProtocol {
 
         node = this.nodes.get(message.getInitiatorLabel());
         if (node == null) {
-            testNullNode(message.getInitiatorLabel());
+            testNullNode(message.getInitiatorLabel(), message);
             log(String.format("((%d)) processAck_UpdateNextLeaf node null :: "
                             + "label: '%s' [%d]\n",
                     message.getId(), message.getInitiatorLabel(), this.node.getID()));
