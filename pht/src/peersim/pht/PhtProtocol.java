@@ -463,8 +463,9 @@ public class PhtProtocol implements EDProtocol {
      * @param label Label of the son
      * @param father Label of the father
      * @param inc Increment or Decrement
+     * @throws InitiatorException
      */
-    public void sendUpdateNbKeys(String label, NodeInfo father, boolean inc) {
+    public void sendUpdateNbKeys(String label, NodeInfo father, boolean inc) throws InitiatorException {
         int type;
         PhtMessage message;
         PMLookup pml;
@@ -480,7 +481,7 @@ public class PhtProtocol implements EDProtocol {
         message = new PhtMessage(type, this.node, label, nextId, pml);
 
         if (father.getNode() == null) {
-            log("@@@@@ father null in sendMerge @@@@@");
+            throw new InitiatorException(message.getId() + " sendUpdateNbKeys");
         }
 
 
@@ -541,7 +542,7 @@ public class PhtProtocol implements EDProtocol {
      * @throws PhtNodeNotFoundException
      */
     private void processLinLookup (PhtMessage message, PMLookup pml)
-            throws PhtNodeNotFoundException {
+            throws PhtNodeNotFoundException, InitiatorException {
         NodeInfo next;
         PhtNode node;
 
@@ -909,11 +910,11 @@ public class PhtProtocol implements EDProtocol {
     /**
      * Insert the data into the leaf.
      * @param message Message containing the key and the data.
-     * @throws NoPMLookupException
-     * @throws PhtNodeNotFoundException
+     * @param pml
+     * @throws PhtNodeNotFoundException, InitiatorException
      */
-    private void processInsertion (PhtMessage message)
-            throws NoPMLookupException, PhtNodeNotFoundException {
+    private void processInsertion(PhtMessage message, PMLookup pml)
+            throws PhtNodeNotFoundException, InitiatorException {
         int res;
         PhtNode node;
         PMLookup pml;
@@ -945,7 +946,7 @@ public class PhtProtocol implements EDProtocol {
         res = node.insert(pml.getKey(), pml.getLess());
 
         if (message.getInitiator() == null) {
-            log("@@@@@ initiator null in processInsertion @@@@@");
+            throw new InitiatorException(message.getId() + " processInsertion");
         }
 
         message.setType(PhtMessage.ACK_INSERTION);
@@ -962,7 +963,7 @@ public class PhtProtocol implements EDProtocol {
      * @param message Message with the father's node (PeerSim)
      * @param pml The son's label
      */
-    private void processSplit(PhtMessage message, PMLookup pml) throws CantSplitException {
+    private void processSplit(PhtMessage message, PMLookup pml) throws SplitException, InitiatorException {
         String label;
         PhtNode node;
         NodeInfo ni;
@@ -1004,7 +1005,7 @@ public class PhtProtocol implements EDProtocol {
 
 
         if (message.getInitiator() == null) {
-            log("@@@@@ initiator null in processSplit @@@@@");
+            throw new InitiatorException(message.getId() + " processSplit");
         }
 
         /*
@@ -1020,14 +1021,12 @@ public class PhtProtocol implements EDProtocol {
     /**
      * Get new previous and next leaf. Ack to the father to get data.
      * @param message Message with next and previous leaves
-     * @throws NoPMLookupException
-     * @throws PhtNodeNotFoundException
-     * @throws NoDataSplitData
+     * @throws PhtNodeNotFoundException,
+     * @throws SplitException
+     * @throws InitiatorException
      */
-    private void processSplitLeaves(PhtMessage message)
-            throws NoPMLookupException,
-            PhtNodeNotFoundException,
-            NoDataSplitData {
+    private void processSplitLeaves(PhtMessage message, PMLookup pml)
+            throws PhtNodeNotFoundException, SplitException, InitiatorException {
         String label;
         PhtNode node = null;
         PMLookup pml;
@@ -1093,9 +1092,8 @@ public class PhtProtocol implements EDProtocol {
         pml.setLess(true);
         message.setType(PhtMessage.ACK_SPLIT_LEAVES);
 
-        // TODO: add exception for null initiators
         if (message.getInitiator() == null) {
-            log("@@@@@ initiator null in processSplitLeaves @@@@@");
+            throw new InitiatorException(message.getId() + " processSplitLeaves");
         }
 
         EDSimulator.add(delay(), message, message.getInitiator(), phtid);
@@ -1104,14 +1102,11 @@ public class PhtProtocol implements EDProtocol {
     /**
      * Retrieve the data from the message and insert it into the son
      * @param message Message with all the information
-     * @throws NoPMLookupException
      * @throws PhtNodeNotFoundException
-     * @throws NoDataSplitData
+     * @throws PhtNodeNotFoundException, SplitException
      */
-    private void processSplitData(PhtMessage message)
-            throws NoPMLookupException,
-            PhtNodeNotFoundException,
-            NoDataSplitData {
+    private void processSplitData(PhtMessage message, PMLookup pml)
+            throws PhtNodeNotFoundException, SplitException, InitiatorException {
         String label;
         PhtNode node;
         PMLookup pml;
@@ -1159,7 +1154,7 @@ public class PhtProtocol implements EDProtocol {
 
 
         if (message.getInitiator() == null) {
-            log("@@@@@ initiator null in processSplitData @@@@@");
+            throw new InitiatorException(message.getId() + " ProcessSplitData");
         }
 
         EDSimulator.add(delay(), message, message.getInitiator(), phtid);
