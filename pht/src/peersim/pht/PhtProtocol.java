@@ -237,8 +237,7 @@ public class PhtProtocol implements EDProtocol {
         this.currentData = data;
         this.state       = PHT_INSERTION1;
 
-        log(String.format("((%d)) insertion (%s, %s)    [%d]\n",
-                nextId, key, data, this.node.getID()));
+        log(String.format("((%d)) insertion (%s, %s) [%d]\n", nextId, key, data, this.node.getID()));
 
         query(key, PhtMessage.INSERTION, nextId);
         return nextId;
@@ -256,8 +255,7 @@ public class PhtProtocol implements EDProtocol {
         }
 
         nextId++;
-        log( String.format("((%d)) suppression (%s)    [%d]\n",
-                nextId, key, this.node.getID()) );
+        log( String.format("((%d)) suppression (%s) [%d]\n", nextId, key, this.node.getID()) );
 
         query(key, PhtMessage.SUPRESSION, nextId);
         return nextId;
@@ -274,8 +272,7 @@ public class PhtProtocol implements EDProtocol {
         }
 
         nextId++;
-        log( String.format("((%d)) query (%s)    [%d]\n",
-                nextId, key, this.node.getID()) );
+        log( String.format("((%d)) query (%s) [%d]\n", nextId, key, this.node.getID()) );
 
         // Statistics
         stats.curr().incClientLookup(currentLookup);
@@ -501,8 +498,7 @@ public class PhtProtocol implements EDProtocol {
                             PhtNodeState state, boolean isLeaf, int op) {
         PhtMessage message;
 
-        log( String.format("\n[sendRetry] initiator: %d <> id: %d <> label: '%s'"
-                        + "[node's state: %s][isLeaf: %b][op: %d]\n\n",
+        log( String.format("\n[sendRetry] initiator: %d <> id: %d <> label: '%s' [node's state: %s][isLeaf: %b][op: %d]\n\n",
                 initiator.getID(), id, label, state, isLeaf, op) );
 
         message = new PhtMessage(PhtMessage.RETRY, this.node, label, id, op);
@@ -520,7 +516,6 @@ public class PhtProtocol implements EDProtocol {
         int op = 0;
 
         log( String.format("((%d)) retry\n", message.getId()) );
-        System.out.println(String.format("((%d)) retry\n", message.getId()));
 
         if (message.getMore() instanceof Integer) {
             op = (Integer) message.getMore();
@@ -601,10 +596,8 @@ public class PhtProtocol implements EDProtocol {
             return;
         }
 
-        log(String.format("((%d)) <leaf> processLinLookup :: node %d" +
-                        " :: node's label: '%s' :: key: '%s' :: op: %d\n",
-                message.getId(), this.node.getID(),
-                node.getLabel(), pml.getKey(), pml.getOperation()));
+        log(String.format("((%d)) <leaf> processLinLookup :: node %d :: node's label: '%s' :: key: '%s' :: op: %d\n",
+                message.getId(), this.node.getID(), node.getLabel(), pml.getKey(), pml.getOperation()));
 
         // If it is a leaf, the action depends on the underlying operation
         switch (pml.getOperation()) {
@@ -662,8 +655,7 @@ public class PhtProtocol implements EDProtocol {
                 String father = PhtUtil.father(label);
                 if (father == null) {
                     throw new PhtNodeNotFoundException(
-                            String.format("((%d)) processBackwardLinLookup, "
-                                            + "label: '%s' <> father null\n",
+                            String.format("((%d)) processBackwardLinLookup, label: '%s' <> father null\n",
                                     message.getId(), pml.getDestLabel())
                     );
                 }
@@ -814,11 +806,8 @@ public class PhtProtocol implements EDProtocol {
 
         // Continue the lookup is the node is not a leaf
         if (! node.isLeaf()) {
-            log(String.format("((%d)) <noLeaf> processParQuery :: node %d" +
-                            " :: node's label: '%s' :: key: '%s' :: op: %d\n",
-                    message.getId(), this.node.getID(),
-                    node.getLabel(), pml.getKey(), pml.getOperation()));
-
+            log(String.format("((%d)) <noLeaf> processParQuery :: node %d :: node's label: '%s' :: key: '%s' :: op: %d\n",
+                    message.getId(), this.node.getID(), node.getLabel(), pml.getKey(), pml.getOperation()));
 
             // Forward to the left son
             pml.setDestLabel(node.getLson().getKey());
@@ -858,7 +847,6 @@ public class PhtProtocol implements EDProtocol {
         // If this leaf is outside the range stop here
         if ( (PhtUtil.inRangeMax(node.getLabel(), pmrq.getKeyMax()))
                 && (PhtUtil.inRangeMin(node.getLabel(), pmrq.getKeyMin())) ) {
-            System.out.println("test :: outside ::");
 
             // First: get everything
             pmrq.addRange(
@@ -910,7 +898,7 @@ public class PhtProtocol implements EDProtocol {
     /**
      * Insert the data into the leaf.
      * @param message Message containing the key and the data.
-     * @param pml
+     * @param pml Key and data to insert
      * @throws PhtNodeNotFoundException, InitiatorException
      */
     private void processInsertion(PhtMessage message, PMLookup pml)
@@ -976,12 +964,9 @@ public class PhtProtocol implements EDProtocol {
         node.useDest();
         this.usageDest++;
 
-        log(String.format("((%d)) processSplit [initiator: '%s' <> '%s'][type: %d] "
-                        + "[label: '%s']    [%d]\n",
-                message.getId(),
-                message.getInitiator().getID(), message.getInitiatorLabel(),
-                message.getType(),
-                node.getLabel(), this.node.getID()));
+        log(String.format("((%d)) processSplit [initiator: '%s' <> '%s'][type: %d] [label: '%s'] [%d]\n",
+                message.getId(), message.getInitiator().getID(), message.getInitiatorLabel(),
+                message.getType(), node.getLabel(), this.node.getID()));
 
         /*
          * A split operation needs more than just two messages, so to enable
@@ -1111,12 +1096,9 @@ public class PhtProtocol implements EDProtocol {
             data = (List<PhtData>) pml.getLess();
             pml.setLess(node.insert(data));
 
-            log(String.format("((%d)) processSplitData [initiator: %d <> '%s'][type: %d] "
-                            + "[destLabel: '%s'][keys received: %d]    [%d]\n",
-                    message.getId(),
-                    message.getInitiator().getID(), message.getInitiatorLabel(),
-                    message.getType(),
-                    label, data.size(), this.node.getID()));
+            log(String.format("((%d)) processSplitData [initiator: %d <> '%s'][type: %d] [destLabel: '%s'][keys received: %d] [%d]\n",
+                    message.getId(), message.getInitiator().getID(), message.getInitiatorLabel(),
+                    message.getType(), label, data.size(), this.node.getID()));
         } else {
             throw new SplitException("processSplitData <> "
                     + pml.getLess().getClass().getName()
@@ -1193,8 +1175,7 @@ public class PhtProtocol implements EDProtocol {
         }
 
         log(String.format("((%d)) processMerge [node: '%s'][initiator: '%s' on %d]\n",
-                message.getId(), node.getLabel(),
-                message.getInitiatorLabel(), message.getInitiator().getID()));
+                message.getId(), node.getLabel(), message.getInitiatorLabel(), message.getInitiator().getID()));
 
         if (node.isLeaf()) {
             pml.setLess(true);
@@ -1239,8 +1220,7 @@ public class PhtProtocol implements EDProtocol {
         }
 
         log(String.format("((%d)) processMergeLeaves [node: '%s'][initiator: '%s' on %d]\n",
-                message.getId(), node.getLabel(),
-                message.getInitiatorLabel(), message.getInitiator().getID()));
+                message.getId(), node.getLabel(), message.getInitiatorLabel(), message.getInitiator().getID()));
 
         /*
          * A merge operation needs more than just two messages, so to enable
@@ -1266,8 +1246,7 @@ public class PhtProtocol implements EDProtocol {
         kdata = node.getDKeys();
 
         log(String.format("((%d)) processMergeData [node: '%s'][initiator: '%s' on %d]\n",
-                message.getId(), node.getLabel(),
-                message.getInitiatorLabel(), message.getInitiator().getID()));
+                message.getId(), node.getLabel(), message.getInitiatorLabel(), message.getInitiator().getID()));
 
         /*
          * A merge operation needs more than just two messages, so to enable
@@ -1296,19 +1275,14 @@ public class PhtProtocol implements EDProtocol {
         label = pml.getDestLabel();
         node  = this.nodes.get(label);
 
-        /* If the node does not exists, there is a problem */
         if (node == null) {
-            System.out.println(String.format("((%d)) processMergeDone node null [initiator: '%s' on %d]\n",
-                    message.getId(),
-                    message.getInitiatorLabel(), message.getInitiator().getID()));
             throw new SplitException("processMergeDone node null\n"
                     + " <> label: " + pml.getDestLabel() + "\n"
                     + " <> key: " + pml.getKey());
         }
 
         log(String.format("((%d)) processMergeDone [node: '%s'][initiator: '%s' on %d]\n",
-                message.getId(), node.getLabel(),
-                message.getInitiatorLabel(), message.getInitiator().getID()));
+                message.getId(), node.getLabel(), message.getInitiatorLabel(), message.getInitiator().getID()));
 
         if (this.nodes.remove(pml.getDestLabel()) == null ) {
             log( String.format("((%d)) processMergeDone PhtNode '%s' remove -> null\n",
@@ -1375,11 +1349,11 @@ public class PhtProtocol implements EDProtocol {
             if ( (node.getNbKeys() < PhtProtocol.B+1)
                     && (node.state.isStable())
                     && (! node.isLeaf()) ) {
+
                 log( String.format("((%d)) updateNbkeys from '%s' to '%s' and '%s'\n",
-                        message.getId(),
-                        node.getLabel(),
-                        node.getLson().getKey(),
-                        node.getRson().getKey()) );
+                        message.getId(), node.getLabel(),
+                        node.getLson().getKey(), node.getRson().getKey()) );
+
                 node.state.startMerge();
                 sendMerge(node.getLabel(), node.getLson());
                 sendMerge(node.getLabel(), node.getRson());
@@ -1404,7 +1378,6 @@ public class PhtProtocol implements EDProtocol {
      * Update a PhtNode's previous leaf
      * @param message PhtMessage with information for the logs
      * @param pml Has the new previous leaf
-     * @throws PhtNodeNotFoundException
      */
     private void processUpdatePreviousLeaf(PhtMessage message, PMLookup pml) {
         NodeInfo leaf;
@@ -1455,7 +1428,6 @@ public class PhtProtocol implements EDProtocol {
      * Update a PhtNode's next leaf
      * @param message Just for the log
      * @param pml Contains the next leaf
-     * TODO: update comments
      */
     private void processUpdateNextLeaf(PhtMessage message, PMLookup pml) {
         NodeInfo leaf;
@@ -1770,7 +1742,6 @@ public class PhtProtocol implements EDProtocol {
         stats.curr().incDelete();
 
         client.responseOk(id, res);
-        System.out.println("Ack_Suppression res: " + res);
     }
 
     /* :::::::::: SPLIT ::::::::: */
@@ -1980,12 +1951,9 @@ public class PhtProtocol implements EDProtocol {
             ok = (Boolean) pml.getLess();
         }
 
-        log(String.format("((%d)) processAck_SplitData [initiator: '%s' <> '%s'][type: %d] "
-                        + "[label: '%s'][ok: %s]    [%d]\n",
-                message.getId(),
-                message.getInitiator().getID(), message.getInitiatorLabel(),
-                message.getType(),
-                pml.getDestLabel(), pml.getLess().toString(), this.node.getID()));
+        log(String.format("((%d)) processAck_SplitData [initiator: '%s' <> '%s'][type: %d][label: '%s'][ok: %s][%d]\n",
+                message.getId(), message.getInitiator().getID(), message.getInitiatorLabel(),
+                message.getType(), pml.getDestLabel(), pml.getLess().toString(), this.node.getID()));
 
         if (! ok) {
             throw new BadAckException("processAck_SplitData: pml.getLess() -> false ");
@@ -2021,7 +1989,6 @@ public class PhtProtocol implements EDProtocol {
 
         if (node.state.isStable()) {
             node.internal();
-            System.out.println(">splitok");
             log( String.format("splitok ((%d)) '%s' [%d] :: lson: '%s' [%d] :: rson: '%s' [%d]\n",
                     message.getId(),
                     node.getLabel(), this.node.getID(),
@@ -2030,7 +1997,6 @@ public class PhtProtocol implements EDProtocol {
 
             client.splitOk();
        } else {
-            System.out.println(">splitNotOk");
             log( String.format("((%d)) not stable : %s\n", message.getId(), node.state.toString()) );
         }
     }
@@ -2151,12 +2117,6 @@ public class PhtProtocol implements EDProtocol {
              */
             node.returnMessage();
             node.state.stopMerge();
-
-        } else {
-            if (! node.storeMessage(message) ) {
-                System.out.printf("((%d)) processAck_Merge :: storeMessage false\n",
-                        message.getId());
-            }
         }
     }
 
@@ -2210,17 +2170,13 @@ public class PhtProtocol implements EDProtocol {
             node.state.ackMergeLeavesRson();
         }
 
-        log(String.format("((%d)) processAck_MergeLeaves [node: '%s'][initiator: '%s' on %d] "
-                        + "[node's state: %s] ",
-                message.getId(), node.getLabel(),
-                message.getInitiatorLabel(), message.getInitiator().getID(),
-                node.state));
+        log(String.format("((%d)) processAck_MergeLeaves [node: '%s'][initiator: '%s' on %d] [node's state: %s] ",
+                message.getId(), node.getLabel(), message.getInitiatorLabel(),
+                message.getInitiator().getID(), node.state));
 
         if ( (node.getPrevLeaf().getNode() != null)
                 && (node.getNextLeaf().getNode() != null) ) {
-            log(String.format("prev: '%s' <> next: '%s'\n",
-                    node.getPrevLeaf().getKey(),
-                    node.getNextLeaf().getKey()));
+            log(String.format("prev: '%s' <> next: '%s'\n", node.getPrevLeaf().getKey(), node.getNextLeaf().getKey()));
         }
 
         pml.setLess(true);
@@ -2247,17 +2203,14 @@ public class PhtProtocol implements EDProtocol {
                     + pml.getDestLabel() + "'");
         }
 
-        log(String.format("((%d)) processAck_MergeData [node: '%s'][initiator: '%s' on %d] "
-                        + "[node's state: %s]\n",
-                message.getId(), pml.getDestLabel(),
-                message.getInitiatorLabel(), message.getInitiator().getID(),
-                father.state));
+        log(String.format("((%d)) processAck_MergeData [node: '%s'][initiator: '%s' on %d] [node's state: %s]\n",
+                message.getId(), pml.getDestLabel(), message.getInitiatorLabel(),
+                message.getInitiator().getID(), father.state));
 
         if (pml.getLess() instanceof List) {
             father.insertMerge((List<PhtData>) pml.getLess());
         } else {
-            throw new BadAckException("processAck_MergeData "
-                    + pml.getLess().getClass().getName());
+            throw new BadAckException("processAck_MergeData " + pml.getLess().getClass().getName());
         }
 
         message.setType(PhtMessage.MERGE_DONE);
@@ -2289,31 +2242,25 @@ public class PhtProtocol implements EDProtocol {
 
         if (pml.getDestLabel().endsWith("0")) {
             if(! node.state.mergeDoneLSon() ) {
-                log(String.format("((%d)) processAck_MergeDone fail lson"
-                                + "[node: '%s'][initiator: '%s' on %d] "
+                log(String.format("((%d)) processAck_MergeDone fail lson [node: '%s'][initiator: '%s' on %d] "
                                 + "[label: '%s'][node state: %s] '",
-                        message.getId(), pml.getDestLabel(),
-                        message.getInitiatorLabel(), message.getInitiator().getID(),
-                        pml.getDestLabel(), node.state.toString()));
+                        message.getId(), pml.getDestLabel(), message.getInitiatorLabel(),
+                        message.getInitiator().getID(), pml.getDestLabel(), node.state.toString()));
                 interrupt();
             }
         } else if (pml.getDestLabel().endsWith("1")) {
             if(! node.state.mergeDoneRSon() ) {
-                log(String.format("((%d)) processAck_MergeDone fail rson"
-                                + "[node: '%s'][initiator: '%s' on %d] "
+                log(String.format("((%d)) processAck_MergeDone fail rson [node: '%s'][initiator: '%s' on %d] "
                                 + "[label: '%s'][node state: %s] '",
-                        message.getId(), pml.getDestLabel(),
-                        message.getInitiatorLabel(), message.getInitiator().getID(),
-                        pml.getDestLabel(), node.state.toString()));
+                        message.getId(), pml.getDestLabel(), message.getInitiatorLabel(),
+                        message.getInitiator().getID(), pml.getDestLabel(), node.state.toString()));
                 interrupt();
             }
         }
 
-        log(String.format("((%d)) processAck_MergeDone [node: '%s'][initiator: '%s' on %d] "
-                        + "[node's state: %s]\n",
-                message.getId(), pml.getDestLabel(),
-                message.getInitiatorLabel(), message.getInitiator().getID(),
-                node.state));
+        log(String.format("((%d)) processAck_MergeDone [node: '%s'][initiator: '%s' on %d] [node's state: %s]\n",
+                message.getId(), pml.getDestLabel(), message.getInitiatorLabel(),
+                message.getInitiator().getID(), node.state));
 
         if (node.state.mergeDone()) {
             node.state.startThreaded();
@@ -2350,11 +2297,9 @@ public class PhtProtocol implements EDProtocol {
             // Inform the client
             client.mergeOk();
 
-            log(String.format("((%d)) processAck_MergeDone [node: '%s'][initiator: '%s' on %d] "
-                            + "[node's state: %s]\n",
-                    message.getId(), pml.getDestLabel(),
-                    message.getInitiatorLabel(), message.getInitiator().getID(),
-                    node.state));
+            log(String.format("((%d)) processAck_MergeDone [node: '%s'][initiator: '%s' on %d] [node's state: %s]\n",
+                    message.getId(), pml.getDestLabel(), message.getInitiatorLabel(),
+                    message.getInitiator().getID(), node.state));
         }
     }
 
@@ -2371,8 +2316,7 @@ public class PhtProtocol implements EDProtocol {
         node = this.nodes.get(message.getInitiatorLabel());
         if (node == null) {
             testNullNode(message.getInitiatorLabel(), message);
-            log( String.format("((%d)) processAck_UpdatePrevLeaf node null :: "
-                    + "label: '%s' [%d]\n",
+            log( String.format("((%d)) processAck_UpdatePrevLeaf node null :: label: '%s' [%d]\n",
                     message.getId(), message.getInitiatorLabel(), this.node.getID()) );
             return;
         }
@@ -2381,15 +2325,11 @@ public class PhtProtocol implements EDProtocol {
         node.useDest();
 
         if (! node.state.ackNextLeaf() ) {
-            log ( String.format("((%d)) processAck_UpdatePrevLeaf error node '%s' "
-                            + "ack from '%s' :: tleaves: %s \n",
-                    message.getId(), node.getLabel(), pml.getDestLabel(),
-                    node.state.toString()));
+            log ( String.format("((%d)) processAck_UpdatePrevLeaf error node '%s' ack from '%s' :: tleaves: %s \n",
+                    message.getId(), node.getLabel(), pml.getDestLabel(), node.state.toString()));
         } else {
-            log(String.format("((%d)) processAck_UpdatePrevLeaf node '%s' ack from '%s' "
-                            + "tleaves: %s \n",
-                    message.getId(), node.getLabel(), pml.getDestLabel(),
-                    node.state.toString()));
+            log(String.format("((%d)) processAck_UpdatePrevLeaf node '%s' ack from '%s' tleaves: %s \n",
+                    message.getId(), node.getLabel(), pml.getDestLabel(), node.state.toString()));
         }
 
         if (node.state.mergeDone()) {
@@ -2419,8 +2359,7 @@ public class PhtProtocol implements EDProtocol {
         node = this.nodes.get(message.getInitiatorLabel());
         if (node == null) {
             testNullNode(message.getInitiatorLabel(), message);
-            log(String.format("((%d)) processAck_UpdateNextLeaf node null :: "
-                            + "label: '%s' [%d]\n",
+            log(String.format("((%d)) processAck_UpdateNextLeaf node null :: label: '%s' [%d]\n",
                     message.getId(), message.getInitiatorLabel(), this.node.getID()));
             return;
         }
@@ -2487,7 +2426,6 @@ public class PhtProtocol implements EDProtocol {
             pml.setDestLabel(pml.getDestLabel() + label);
             this.dht.send(message, pml.getDestLabel());
         }
-        return;
     }
 
     /**
@@ -2881,7 +2819,7 @@ public class PhtProtocol implements EDProtocol {
      */
     private void testNullNode(String label, PhtMessage message) {
         if ( (label.equals("")) || (allPhtNodes.get(label) != this.node.getID()) ) {
-            System.err.printf("((%d)) [type %d] [dest %s] fatal: PhtNode '%s' exists on node %d (currently on node %d)\n",
+            System.out.printf("((%d)) [type %d] [dest %s] fatal: PhtNode '%s' exists on node %d (currently on node %d)\n",
                     message.getId(), message.getType(), message.getInitiatorLabel(),
                     label, allPhtNodes.get(label), this.node.getID());
 
@@ -3060,10 +2998,6 @@ public class PhtProtocol implements EDProtocol {
             e.printStackTrace();
             System.exit(-1);
         }
-    }
-
-    public static void logError(String info) {
-
     }
 
     public void flush() {
