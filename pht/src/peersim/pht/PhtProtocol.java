@@ -1030,7 +1030,7 @@ public class PhtProtocol implements EDProtocol {
         String label;
         PhtNode node = null;
         PMLookup pml;
-        List<NodeInfo> info;
+        NodeInfo[]  info;
 
         pml   = checkLookup(message, "processSplitLeaves");
         label = pml.getDestLabel();
@@ -1050,10 +1050,10 @@ public class PhtProtocol implements EDProtocol {
         node.useDest();
         this.usageDest++;
 
-        if (pml.getLess() instanceof List) {
+        if (pml.getLess() instanceof NodeInfo[]) {
 
             // Retrieve the data an pass it to the son
-            info = (List<NodeInfo>) pml.getLess();
+            info = (NodeInfo[]) pml.getLess();
 
             /*
              * Updates may have arrived before this message.
@@ -1065,10 +1065,10 @@ public class PhtProtocol implements EDProtocol {
              * father, because it would override the correct one.
              */
             if (node.getPrevLeaf().getNode() == null) {
-                node.setPrevLeaf(info.get(0));
+                node.setPrevLeaf(info[NodeInfo.ARRAY_PREVLEAF]);
             }
             if (node.getNextLeaf().getNode() == null) {
-                node.setNextLeaf(info.get(1));
+                node.setNextLeaf(info[NodeInfo.ARRAY_NEXTLEAF]);
             }
 
             log(String.format("((%d)) processSplitLeaves [initiator: '%s' <> '%s'][type: %d] "
@@ -1940,21 +1940,20 @@ public class PhtProtocol implements EDProtocol {
         this.usageDest++;
 
         String label = node.getLabel();
-        List<NodeInfo> info = new LinkedList<NodeInfo>();
+        NodeInfo[] info = new NodeInfo[2];
 
         // Get the leaves for the left and right sons
         if (pml.getDestLabel().charAt(label.length()) == '0') {
-            // TODO: change to array ?
-            info.add( node.getPrevLeaf() );
-            info.add( node.getRson() );
+            info[NodeInfo.ARRAY_PREVLEAF] = ( node.getPrevLeaf() );
+            info[NodeInfo.ARRAY_NEXTLEAF] = ( node.getRson() );
 
             if (! node.state.ackSplitLson() ) {
                 interrupt();
             }
             node.setLson( new NodeInfo(pml.getDestLabel(), pml.getDest()) );
         } else {
-            info.add( node.getLson() );
-            info.add( node.getNextLeaf() );
+            info[NodeInfo.ARRAY_PREVLEAF] = ( node.getLson() );
+            info[NodeInfo.ARRAY_NEXTLEAF] = ( node.getNextLeaf() );
 
             if (! node.state.ackSplitRson() ) {
                 interrupt();
@@ -2684,11 +2683,11 @@ public class PhtProtocol implements EDProtocol {
      * @param node Current node (who started the split)
      */
     private void startUpdateLeavesL (PhtMessage message, PMLookup pml, PhtNode node) {
-        List<NodeInfo> info;
+        NodeInfo[] info;
         PhtMessage update;
         PMLookup pmlUpdate;
 
-        info      = new LinkedList<NodeInfo>();
+        info      = new NodeInfo[2];
         pmlUpdate = new PMLookup(
                 node.getLabel(),
                 message.getType(),
@@ -2703,22 +2702,11 @@ public class PhtProtocol implements EDProtocol {
                 pmlUpdate
         );
 
-        info.add(
-                new NodeInfo(
-                        node.getPrevLeaf().getKey(),
-                        node.getPrevLeaf().getNode()
-                )
-        );
-        info.add(
-                new NodeInfo(
-                        node.getRson().getKey(),
-                        node.getRson().getNode()
-                )
-        );
+        info[NodeInfo.ARRAY_PREVLEAF] = new NodeInfo(node.getPrevLeaf().getKey(), node.getPrevLeaf().getNode());
+        info[NodeInfo.ARRAY_NEXTLEAF] = new NodeInfo(node.getRson().getKey(), node.getRson().getNode());
 
         pmlUpdate.setLess(info);
         EDSimulator.add(delay(), update, node.getLson().getNode(), phtid);
-        
     }
 
     /**
@@ -2728,11 +2716,11 @@ public class PhtProtocol implements EDProtocol {
      * @param node Current node (who started the split)
      */
     private void startUpdateLeavesR (PhtMessage message, PMLookup pml, PhtNode node) {
-        List<NodeInfo> info;
+        NodeInfo[] info;
         PhtMessage update;
         PMLookup pmlUpdate;
 
-        info      = new LinkedList<NodeInfo>();
+        info      = new NodeInfo[2];
         pmlUpdate = new PMLookup(
                 node.getLabel(),
                 message.getType(),
@@ -2747,22 +2735,11 @@ public class PhtProtocol implements EDProtocol {
                 pmlUpdate
         );
 
-        info.add(
-                new NodeInfo(
-                        node.getLson().getKey(),
-                        node.getLson().getNode()
-                )
-        );
-        info.add(
-                new NodeInfo(
-                        node.getNextLeaf().getKey(),
-                        node.getNextLeaf().getNode()
-                )
-        );
+        info[NodeInfo.ARRAY_PREVLEAF] = new NodeInfo(node.getLson().getKey(), node.getLson().getNode());
+        info[NodeInfo.ARRAY_NEXTLEAF] = new NodeInfo(node.getNextLeaf().getKey(), node.getNextLeaf().getNode());
 
         pmlUpdate.setLess(info);
         EDSimulator.add(delay(), update, node.getRson().getNode(), phtid);
-        
     }
 
     /**
