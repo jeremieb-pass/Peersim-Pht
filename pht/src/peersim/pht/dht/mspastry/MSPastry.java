@@ -17,12 +17,11 @@ import java.math.BigInteger;
  */
 public class MSPastry implements DhtInterface, EDProtocol {
     private final String prefix;
-    private final int mspId;
     private MSPastryProtocol msp;
 
-   public MSPastry (String prefix) {
+   public MSPastry(String prefix) {
        this.prefix = prefix;
-       this.mspId  = Configuration.getPid(prefix + ".mspid");
+       int mspId = Configuration.getPid(prefix + ".mspid");
    }
 
     /**

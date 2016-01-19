@@ -18,7 +18,7 @@ public class MSPastryListener implements MSPastryProtocol.Listener, EDProtocol {
     private final int phtid;
     private Node node;
 
-    public MSPastryListener (String prefix) {
+    public MSPastryListener(String prefix) {
         MSPastryListener.prefix = prefix;
         this.phtid  = Configuration.getPid(prefix + ".phtid");
     }

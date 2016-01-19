@@ -5,7 +5,6 @@ import peersim.core.Control;
 import peersim.core.Network;
 import peersim.core.Node;
 import peersim.pastry.MSPastryProtocol;
-import peersim.pht.ClientInterlocutor;
 import peersim.pht.PhtProtocol;
 import peersim.pht.statistics.Stats;
 
@@ -61,9 +60,6 @@ public class MSPInit implements Control{
         PhtProtocol pht;
         pht = (PhtProtocol) Network.get(this.bootstrap).getProtocol(this.phtid);
         pht.sendInit("");
-
-        ClientInterlocutor ci = ClientInterlocutor.getInstance();
-        ci.setPht(pht);
 
         return false;
     }
