@@ -1571,11 +1571,11 @@ public class PhtProtocol implements EDProtocol {
             return;
         }
 
+        this.rqCount++;
         if (pmrq.isEnd()) {
             this.rqTotal = pmrq.getCount();
         }
 
-        this.rqCount++;
         if (this.rqCount == this.rqTotal) {
             log(String.format("::processAck_SeqQuery:: total: %d OK '%s' to '%s'\n",
                     this.rqTotal, pmrq.getKeyMin(), pmrq.getKeyMax()));
