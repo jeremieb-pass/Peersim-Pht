@@ -10,7 +10,7 @@ Prefix Hash Tree Implementation for PeerSim as described in https://www.eecs.ber
 
 2. Binary lookup 
 
-   Try different prefix lengths until the required leaf is reached. (not yet implemented).
+   Try different prefix lengths until the required leaf is reached. (not implemented due to problems with mspastry).
 
 3. Insertion of a key with related split operation.
 4. Deletion of a key with the related merge operation.
@@ -52,16 +52,24 @@ You will find five different parameters for the PhtProtocol in the configuration
 3. Dht interface.
 4. Logs enabled. Possible values: "on" or anything else to disable this.
 5. Type of range query for the simulation ("seq" for sequential, everything else for parallel).
+6. Maximum delay (each message is virtually sent with a (very) pseudo-random delay)
+7. Retry factor (when a message has been stopped, retry the same operation with a Maximum delay * retry factor
+    time)
+8. Route fail: continue or stop when a routing error has been detected (true: stop)
 
 ## Project status
 
 ### MSPastry
 
-The mspastry package seems to have another problem: the routing part. The implementation does not allow replication, hence the network must be static. Lots of message with the same recipient should be received by only one Node, which does not always happen.
+The mspastry package seems to have another problem: the routing part. The implementation does
+not allow replication, hence the network must be static. Lots of message with the same
+recipient should be received by only one Node, which does not always happen.
 
 ### Tests
 
-As for now, tests are run during the simulation. These tests uses Java assertions.
+The PhtUtil class provides static methods to make some tests and check whether the whole Pht
+is correct (keys only in leaves, threaded leaves are correct, every inserted key is in the
+Pht, etc.).
 
 ### Statistics
  
@@ -79,3 +87,11 @@ about:
 + Ten least used nodes
 + Ten most loaded leaves
 + Ten least loaded leaves
++ Number of insertion, delete, query, range query operations
+
+### Compile and run
+
+As PeerSim, this Pht implementation makes use of a Makefile. To compile, simply type
+`make`. To run the simulation with the default configuration file, type `make
+run`. To clean the .class files, type `make clean`. To build the javadoc,
+type `make doc`.
