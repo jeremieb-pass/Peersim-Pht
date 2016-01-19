@@ -2986,18 +2986,10 @@ public class PhtProtocol implements EDProtocol {
    /* ___________________________                ___________________________ */
     /* ___________________________ Setter methods ___________________________ */
 
-    /**
-     * Set this.phtid to phtis
-     * @param phtid New PhtId
-     */
     public void setPhtid(int phtid) {
         PhtProtocol.phtid = phtid;
     }
 
-    /**
-     * Change the current dht to 'dht'
-     * @param dht New Dht
-     */
     public void setDht(DhtInterface dht) {
         this.dht  = dht;
     }
@@ -3019,6 +3011,11 @@ public class PhtProtocol implements EDProtocol {
     public void setClient(Client client) {
         PhtProtocol.client = client;
     }
+
+    public void setExceptionHandler (PhtExceptionHandler pe) {
+        pehandler = pe;
+    }
+
 
     /*_________________________                        ______________________ */
     /*_________________________ Initiation for PeerSim ______________________ */
@@ -3061,7 +3058,12 @@ public class PhtProtocol implements EDProtocol {
             logWriter.write(info);
         } catch (IOException e) {
             e.printStackTrace();
+            System.exit(-1);
         }
+    }
+
+    public static void logError(String info) {
+
     }
 
     public void flush() {
