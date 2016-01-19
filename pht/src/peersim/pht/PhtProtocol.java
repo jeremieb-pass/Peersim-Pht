@@ -1582,8 +1582,7 @@ public class PhtProtocol implements EDProtocol {
 
         }
 
-        client.responseList(message.getId(), pmrq.getKdata());
-
+        client.responseList(message.getId(), pmrq.getKdata(), this.rqCount == this.rqTotal);
         log(String.format("((%d)) processAck_SeqQuery <> %d keys\n",
                 message.getId(), pmrq.getCount()));
     }
@@ -1683,7 +1682,7 @@ public class PhtProtocol implements EDProtocol {
             return;
         }
 
-        client.responseList(message.getId(), pmrq.getKdata());
+        client.responseList(message.getId(), pmrq.getKdata(), pmrq.isEnd());
 
         this.rqCount++;
         if (this.rqCount == this.rqTotal) {
@@ -1726,6 +1725,7 @@ public class PhtProtocol implements EDProtocol {
                 message.getId(), message.getInitiator().getID(), message.getType(),
                 message.getMore().toString(), this.node.getID()));
 
+
         if (message.getMore() instanceof Integer) {
             res = (Integer) message.getMore();
         } else {
@@ -1736,7 +1736,7 @@ public class PhtProtocol implements EDProtocol {
         stats.curr().incInsert();
 
         this.state = PHT_INIT;
-        PhtProtocol.client.responseOk(id, res);
+        client.responseOk(id, res);
     }
 
     /**
@@ -1767,7 +1767,7 @@ public class PhtProtocol implements EDProtocol {
         // Statistics
         stats.curr().incDelete();
 
-        PhtProtocol.client.responseOk(id, res);
+        client.responseOk(id, res);
         System.out.println("Ack_Suppression res: " + res);
     }
 
@@ -2344,6 +2344,9 @@ public class PhtProtocol implements EDProtocol {
                     client.mergeOk();
                 }
             }
+
+            // Inform the client
+            client.mergeOk();
 
             log(String.format("((%d)) processAck_MergeDone [node: '%s'][initiator: '%s' on %d] "
                             + "[node's state: %s]\n",
@@ -3011,6 +3014,10 @@ public class PhtProtocol implements EDProtocol {
         this.nid = id;
     }
 
+    public void setClient(Client client) {
+        PhtProtocol.client = client;
+    }
+
     /*_________________________                        ______________________ */
     /*_________________________ Initiation for PeerSim ______________________ */
 
@@ -3026,6 +3033,7 @@ public class PhtProtocol implements EDProtocol {
 
         PhtProtocol.init = true;
         this.nodes.put("", new PhtNode("", this));
+        client.initOk();
         log("PHT initiate() on node " + this.node.getID());
 
         System.out.println("PHT initiate");
