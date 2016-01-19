@@ -567,6 +567,8 @@ public class PhtProtocol implements EDProtocol {
             }
 
         }
+
+        // Statistics
         node.use();
 
         /*
@@ -624,11 +626,13 @@ public class PhtProtocol implements EDProtocol {
                 processSeqQuery(message, pml);
                 return;
         }
+
+        // Statistics
         node.useDest();
         this.usageDest++;
+        stats.curr().incLookup(currentLookup);
 
         pml.setDest(this.node);
-
         EDSimulator.add(delay(), message, message.getInitiator(), phtid);
     }
 
