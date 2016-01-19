@@ -913,10 +913,6 @@ public class PhtProtocol implements EDProtocol {
             throws PhtNodeNotFoundException, InitiatorException {
         int res;
         PhtNode node;
-        PMLookup pml;
-
-        // TODO: add a PMLookup parameter and remove checkLookup
-        pml  = checkLookup(message, "processInsertion");
         node = this.nodes.get(pml.getDestLabel());
         for (PhtNode nd: this.nodes.values()) {
             if (nd.getLabel().equals(pml.getDestLabel())) {
@@ -1025,12 +1021,9 @@ public class PhtProtocol implements EDProtocol {
             throws PhtNodeNotFoundException, SplitException, InitiatorException {
         String label;
         PhtNode node = null;
-        PMLookup pml;
         NodeInfo[]  info;
 
-        pml   = checkLookup(message, "processSplitLeaves");
         label = pml.getDestLabel();
-
         for (PhtNode nd: this.nodes.values()) {
             if (nd.getLabel().equals(label)) {
                 node = nd;
@@ -1096,10 +1089,8 @@ public class PhtProtocol implements EDProtocol {
             throws PhtNodeNotFoundException, SplitException, InitiatorException {
         String label;
         PhtNode node;
-        PMLookup pml;
         List<PhtData> data;
 
-        pml   = checkLookup(message, "processSplitData");
         label = pml.getDestLabel();
         node  = this.nodes.get(label);
         for (PhtNode nd: this.nodes.values()) {
@@ -1519,17 +1510,12 @@ public class PhtProtocol implements EDProtocol {
      * Nothing to do after for two time requests (suppression, queries...).
      * If there is something to do after the lookup, start it.
      * @param message Request message
-     * @throws NoPMLookupException
-     * @throws NotAllowedOperationException
+     * @param pml More information (extracted from message)
      * @throws WrongStateException
      */
-    private void processAck_LinLookup(PhtMessage message)
-            throws NoPMLookupException,
-            NotAllowedOperationException,
+    private void processAck_LinLookup(PhtMessage message, PMLookup pml)
+            throws
             WrongStateException {
-        PMLookup pml;
-
-        pml = checkLookup(message, "processAck_LinLookup");
 
         log(String.format("((%d)) processAck_LinLookup [initiator: '%s'][type: %d] "
                         + "[op: %d][key: '%s']    [%d]\n",
@@ -1607,14 +1593,10 @@ public class PhtProtocol implements EDProtocol {
      * done)</li>
      *   </ol>
      * @param message Keys and data send from the leaf
-     * @throws NoPMLookupException
+     * @param pml More information (extracted from message)
      */
-    private void processAck_SeqQuery(PhtMessage message)
-            throws NoPMLookupException {
-        PMLookup pml;
+    private void processAck_SeqQuery(PhtMessage message, PMLookup pml) {
         PMRangeQuery pmrq;
-
-        pml = checkLookup(message, "processAck_SeqQuery");
 
         if (pml.getLess() instanceof PMRangeQuery) {
             pmrq = (PMRangeQuery) pml.getLess();
@@ -1834,17 +1816,13 @@ public class PhtProtocol implements EDProtocol {
      * @param message Message to process
      * @throws PhtNodeNotFoundException
      * @throws BadAckException
-     * @throws NoPMLookupException
      */
-    private void processAck_Split(PhtMessage message)
+    private void processAck_Split(PhtMessage message, PMLookup pml)
             throws PhtNodeNotFoundException,
-            BadAckException,
-            NoPMLookupException {
+            BadAckException {
         boolean ok = false;
-        PMLookup pml;
-        PhtNode node = null;
+        PhtNode node;
 
-        pml = checkLookup(message, "processAck_Split");
         if (pml.getLess() instanceof  Boolean) {
             ok = (Boolean) pml.getLess();
         }
@@ -1934,12 +1912,10 @@ public class PhtProtocol implements EDProtocol {
      *                label of the son.
      * @throws BadAckException
      */
-    private void processAck_SplitLeaves (PhtMessage message)
+    private void processAck_SplitLeaves (PhtMessage message, PMLookup pml)
             throws BadAckException,
-            NoPMLookupException,
             PhtNodeNotFoundException {
         boolean ok = false;
-        PMLookup pml = checkLookup(message, "processAck_SplitLeaves");
         if (pml.getLess() instanceof  Boolean) {
             ok = (Boolean) pml.getLess();
         }
@@ -2027,18 +2003,14 @@ public class PhtProtocol implements EDProtocol {
      * Tell the father that the son got all the keys that he send to him
      * @param message Message with all the information needed
      * @throws BadAckException
-     * @throws NoPMLookupException
      * @throws PhtNodeNotFoundException
      */
-    private void processAck_SplitData(PhtMessage message)
+    private void processAck_SplitData(PhtMessage message, PMLookup pml)
             throws BadAckException,
-            NoPMLookupException,
             PhtNodeNotFoundException {
         boolean ok = false;
-        PMLookup pml;
-        PhtNode node = null;
+        PhtNode node;
 
-        pml = checkLookup(message, "processAck_SplitData");
         if (pml.getLess() instanceof  Boolean) {
             ok = (Boolean) pml.getLess();
         }
@@ -2111,18 +2083,14 @@ public class PhtProtocol implements EDProtocol {
      * @param message Message with all the information needed
      * @throws PhtNodeNotFoundException
      * @throws BadAckException
-     * @throws NoPMLookupException
      */
-    private void processAck_Merge(PhtMessage message)
+    private void processAck_Merge(PhtMessage message, PMLookup pml)
             throws PhtNodeNotFoundException,
-            BadAckException,
-            NoPMLookupException {
+            BadAckException {
         boolean continueMerge;
-        PMLookup pml;
         PhtNode node;
-        NodeInfo ni = null;
+        NodeInfo ni;
 
-        pml = checkLookup(message, "processAck_Merge");
         if (pml.getLess() instanceof Boolean) {
             continueMerge = (Boolean) pml.getLess();
         } else {
@@ -2239,18 +2207,14 @@ public class PhtProtocol implements EDProtocol {
      * @param message Message with all the information needed
      * @throws PhtNodeNotFoundException
      * @throws BadAckException
-     * @throws NoPMLookupException
      */
-    private void processAck_MergeLeaves(PhtMessage message)
+    private void processAck_MergeLeaves(PhtMessage message, PMLookup pml)
             throws PhtNodeNotFoundException,
-            BadAckException,
-            NoPMLookupException {
-        PMLookup pml;
+            BadAckException {
         PhtNode node;
         String label;
         NodeInfo leaf;
 
-        pml = checkLookup(message, "processAck_MergeLeaves");
         if (pml.getLess() instanceof NodeInfo) {
             leaf = (NodeInfo) pml.getLess();
         } else {
@@ -2347,21 +2311,16 @@ public class PhtProtocol implements EDProtocol {
      * @param message Message with all the information needed.
      * @throws PhtNodeNotFoundException
      * @throws BadAckException
-     * @throws NoPMLookupException
      */
-    private void processAck_MergeDone(PhtMessage message)
+    private void processAck_MergeDone(PhtMessage message, PMLookup pml)
             throws BadAckException,
-            NoPMLookupException,
             PhtNodeNotFoundException {
-        PMLookup pml;
         PhtNode node;
 
-        pml = checkLookup(message, "processAck_MergeDone");
         if (!(pml.getLess() instanceof Boolean)) {
             throw new BadAckException("processAck_MergeDone: pml.getLess() -> false ");
         }
 
-        // Get the father
         node = this.nodes.get(message.getInitiatorLabel());
         if (node == null) {
             throw new PhtNodeNotFoundException("processAck_MergeDone "
@@ -2580,22 +2539,6 @@ public class PhtProtocol implements EDProtocol {
         }
 
         return node.getRson();
-    }
-
-    /**
-     * Looks if the more field of PhtMessage is a PMLookup
-     * @param message Message to process
-     * @param info String for exception (if any)
-     * @return The PMLookup of the more field
-     * @throws NoPMLookupException
-     */
-    private PMLookup checkLookup (PhtMessage message, String info)
-            throws NoPMLookupException {
-        if (message.getMore() instanceof PMLookup) {
-            return (PMLookup) message.getMore();
-        } else {
-            throw new NoPMLookupException(info);
-        }
     }
 
     /**
