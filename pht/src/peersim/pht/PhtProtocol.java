@@ -3304,9 +3304,14 @@ public class PhtProtocol implements EDProtocol {
     /* ____________________________ Debug methods ___________________________ */
 
     /**
-     * A brutal way to stop the test and/or the simulation
+     * Stop the test and/or the simulation
      */
     public void interrupt() {
+        try {
+            logWriter.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         System.exit(-1);
     }
 
