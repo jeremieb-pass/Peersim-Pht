@@ -2664,11 +2664,11 @@ public class PhtProtocol implements EDProtocol {
                     break;
 
                 case PhtMessage.SPLIT_DATA:
-                    processSplitData(message);
+                    processSplitData(message, pml);
                     break;
 
                 case PhtMessage.SPLIT_LEAVES:
-                    processSplitLeaves(message);
+                    processSplitLeaves(message, pml);
                     break;
 
                 case PhtMessage.UPDATE_PREV_LEAF:
@@ -2696,7 +2696,7 @@ public class PhtProtocol implements EDProtocol {
                     break;
 
                 case PhtMessage.INSERTION:
-                    processInsertion(message);
+                    processInsertion(message, pml);
                     break;
 
                 case PhtMessage.SUPRESSION:
@@ -2756,15 +2756,15 @@ public class PhtProtocol implements EDProtocol {
             switch (message.getType()) {
 
                 case PhtMessage.ACK_SPLIT:
-                    processAck_Split(message);
+                    processAck_Split(message, pml);
                     break;
 
                 case PhtMessage.ACK_SPLIT_DATA:
-                    processAck_SplitData(message);
+                    processAck_SplitData(message, pml);
                     break;
 
                 case PhtMessage.ACK_SPLIT_LEAVES:
-                    processAck_SplitLeaves(message);
+                    processAck_SplitLeaves(message, pml);
                     break;
 
                 case PhtMessage.ACK_UPDATE_PREV_LEAF:
@@ -2776,11 +2776,11 @@ public class PhtProtocol implements EDProtocol {
                     break;
 
                 case PhtMessage.ACK_MERGE:
-                    processAck_Merge(message);
+                    processAck_Merge(message, pml);
                     break;
 
                 case PhtMessage.ACK_MERGE_LEAVES:
-                    processAck_MergeLeaves(message);
+                    processAck_MergeLeaves(message, pml);
                     break;
 
                 case PhtMessage.ACK_MERGE_DATA:
@@ -2788,7 +2788,7 @@ public class PhtProtocol implements EDProtocol {
                     break;
 
                 case PhtMessage.ACK_MERGE_DONE:
-                    processAck_MergeDone(message);
+                    processAck_MergeDone(message, pml);
                     break;
 
                 case PhtMessage.ACK_INSERTION:
@@ -2806,14 +2806,14 @@ public class PhtProtocol implements EDProtocol {
                     break;
 
                 case PhtMessage.ACK_LIN_LOOKUP:
-                    processAck_LinLookup(message);
+                    processAck_LinLookup(message, pml);
                     break;
 
                 case PhtMessage.ACK_BIN_LOOKUP:
                     break;
 
                 case PhtMessage.ACK_SEQ_QUERY:
-                    processAck_SeqQuery(message);
+                    processAck_SeqQuery(message, pml);
                     break;
 
                 case PhtMessage.ACK_PAR_QUERY:
