@@ -20,12 +20,12 @@ class RQueryStats {
     /*
      * Sequential queries sorted by count.
      */
-    private TreeSet<PMRQueryHolder> seqh;
+    private final TreeSet<PMRQueryHolder> seqh;
 
     /*
      * Parallel queries sorted by count.
      */
-    private TreeSet<PMRQueryHolder> parh;
+    private final TreeSet<PMRQueryHolder> parh;
 
     /*
      * Sequential and parallel range queries requested by the client.
@@ -39,9 +39,9 @@ class RQueryStats {
     private long seqCount;
     private long parCount;
 
-    protected RQueryStats() {
-        this.seqh = new TreeSet<PMRQueryHolder>();
-        this.parh = new TreeSet<PMRQueryHolder>();
+    RQueryStats() {
+        this.seqh = new TreeSet<>();
+        this.parh = new TreeSet<>();
     }
 
     /* _______________________                        _______________________ */
@@ -140,8 +140,8 @@ class RQueryStats {
      * @param nb Maximum number of items in the list
      * @return List of max PMRQueryHolder
      */
-    public List<PMRQueryHolder> maxRQueries (TreeSet<PMRQueryHolder> set, int nb) {
-        List<PMRQueryHolder> max = new LinkedList<PMRQueryHolder>();
+    private List<PMRQueryHolder> maxRQueries(TreeSet<PMRQueryHolder> set, int nb) {
+        List<PMRQueryHolder> max = new LinkedList<>();
 
         if (set.isEmpty()) {
             return max;
@@ -167,8 +167,8 @@ class RQueryStats {
      * @param nb Maximum number of items in the list
      * @return List of max PMRQueryHolder
      */
-    public List<PMRQueryHolder> minRQueries (TreeSet<PMRQueryHolder> set, int nb) {
-        List<PMRQueryHolder> min = new LinkedList<PMRQueryHolder>();
+    private List<PMRQueryHolder> minRQueries(TreeSet<PMRQueryHolder> set, int nb) {
+        List<PMRQueryHolder> min = new LinkedList<>();
 
         if (set.isEmpty()) {
             return min;

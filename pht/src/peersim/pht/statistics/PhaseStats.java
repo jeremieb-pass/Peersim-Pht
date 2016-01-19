@@ -34,9 +34,9 @@ public class PhaseStats {
 
     /* ---------- Statistics on Node, PhtNode and Range queries ---------- */
 
-    private NodeStats nStats;
-    private PhtNodeStats pnStats;
-    private RQueryStats rqStats;
+    private final NodeStats nStats;
+    private final PhtNodeStats pnStats;
+    private final RQueryStats rqStats;
 
     /* ---------- Did the phase start ? ---------- */
 
@@ -65,7 +65,7 @@ public class PhaseStats {
     /*
      * Count number of times a retry has been necessary.
      */
-    private long retry[];
+    private final long[] retry;
 
     /*
      * Split and merge operations requested by the PhtNodes.
@@ -80,13 +80,13 @@ public class PhaseStats {
     private long splitAvoidedCount;
     private long mergeAvoidedCount;
 
-    private HashMap<Long, Boolean> mergeAvoided;
+    private final HashMap<Long, Boolean> mergeAvoided;
 
-    protected PhaseStats() {
+    PhaseStats() {
         this.nStats       = new NodeStats();
         this.pnStats      = new PhtNodeStats();
         this.rqStats      = new RQueryStats();
-        this.mergeAvoided = new HashMap<Long, Boolean>();
+        this.mergeAvoided = new HashMap<>();
         this.retry        = new long[PhtMessage.LAST_OP];
     }
 
@@ -336,12 +336,8 @@ public class PhaseStats {
     /* ________________________________       _______________________________ */
     /* ________________________________ Print _______________________________ */
 
-    protected void printAll() {
+    void printAll() {
         final int mu = 10;
-
-        if (this.nStats == null) {
-            System.out.println("<> phaseStats.nst null");
-        }
 
         // PhtNodes
         System.out.println(AsciiStats.phtNode);
@@ -354,6 +350,15 @@ public class PhaseStats {
         // Range queries
         System.out.println(AsciiStats.rQueries);
         this.rqStats.printAll();
+
+        // Queries
+        System.out.println(AsciiStats.queries);
+        System.out.printf("%d linear queries, %d binary queries requested by the client\n",
+                this.linCountOp, this.binCountOp);
+        System.out.printf("total number of linear lookups (client and phtprotocol): %d (%d retries) \n",
+                this.linCount, this.retry[PhtMessage.LIN_LOOKUP]);
+        System.out.printf("total number of binary lookups (client and phtprotocol): %d (%d retries) \n",
+                this.binCount, this.retry[PhtMessage.BIN_LOOKUP]);
 
         // Insert
         System.out.println(AsciiStats.insertDelete);

@@ -25,7 +25,7 @@ class NodeStats {
     private static Comparator<NodeHolder> compPhtNodes;
     private static Comparator<NodeHolder> compLeaves;
 
-    private ArrayList<NodeHolder> nodeStats;
+    private final ArrayList<NodeHolder> nodeStats;
 
     private NodeHolder root;
 
@@ -37,10 +37,8 @@ class NodeStats {
     private final int AVG_LEAVES = 4;
     private final int MAX_LEAVES = 5;
 
-    private final int SIZE = 6;
-
-    protected NodeStats () {
-        this.nodeStats   = new ArrayList<NodeHolder>();
+    NodeStats() {
+        this.nodeStats   = new ArrayList<>();
 
         compUsage = new Comparator<NodeHolder>() {
             /**
@@ -133,7 +131,7 @@ class NodeStats {
      * @return List of the nb most used Nodes
      */
     private List<NodeHolder> mostUsedNodes(int nb) {
-        List<NodeHolder> munst = new LinkedList<NodeHolder>();
+        List<NodeHolder> munst = new LinkedList<>();
 
         this.nodeStats.sort(compUsage);
 
@@ -155,6 +153,7 @@ class NodeStats {
      * @return Min, avg, and max for PhtNodes and leaves.
      */
     private float[] phtNodes () {
+        int SIZE = 6;
         float [] pna = new float[SIZE];
 
         if (this.nodeStats.size() == 0) {
@@ -237,11 +236,11 @@ class NodeStats {
      * Data holder class for a {@link peersim.core.Node}
      */
     class NodeHolder {
-        private long id;
-        private long usage;
-        private long usageDest;
-        private int nbPhtNodes;
-        private int nbLeaves;
+        private final long id;
+        private final long usage;
+        private final long usageDest;
+        private final int nbPhtNodes;
+        private final int nbLeaves;
 
         public NodeHolder(long id, long usage, long usageDest,
                           int nbPhtNodes, int nbLeaves) {

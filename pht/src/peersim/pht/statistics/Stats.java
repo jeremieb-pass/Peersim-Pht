@@ -19,20 +19,20 @@ import java.util.LinkedList;
 public class Stats {
     private static Stats stats;
 
-    private LinkedList<PhaseStats> ps;
+    private final LinkedList<PhaseStats> ps;
     private PhaseStats curr;
 
     // Number of operations triggered during the simulation.
     private long opCount;
 
     // When the simulation started
-    private long startTime;
+    private final long startTime;
 
     // When the simulation ended
     private long endTime;
 
     private Stats() {
-        this.ps = new LinkedList<PhaseStats>();
+        this.ps = new LinkedList<>();
         this.ps.addFirst(new PhaseStats());
         this.curr      = this.ps.peekLast();
         this.startTime = System.currentTimeMillis();
@@ -83,10 +83,10 @@ public class Stats {
 
     public void printAll() {
         int i = 0;
-        long min  = 0;
-        long sec  = 0;
-        long msec = 0;
-        long tot  = 0;
+        long min;
+        long sec;
+        long msec;
+        long tot;
 
         if (this.endTime == 0) {
             end();

@@ -14,7 +14,7 @@ class PhtNodeStats {
     /*
      * Tree with all the PhtNodes in the network
      */
-    private ArrayList<PhtNodeInfo> pn;
+    private final ArrayList<PhtNodeInfo> pn;
 
     /*
      * Trees with all the PhtNode leaves, the leaves with less than
@@ -22,8 +22,8 @@ class PhtNodeStats {
      *
      * SORTED BY NUMBER OF KEYS
      */
-    private ArrayList<PhtNodeInfo> kpnLeavesBinf;
-    private ArrayList<PhtNodeInfo> kpnLeavesBsup;
+    private final ArrayList<PhtNodeInfo> kpnLeavesBinf;
+    private final ArrayList<PhtNodeInfo> kpnLeavesBsup;
 
     private static Comparator<PhtNodeInfo> compKeys;
     private static Comparator<PhtNodeInfo> compUsage;
@@ -61,10 +61,10 @@ class PhtNodeStats {
     private static final int HEIGHT_SIZE = 4;
     private static final int ZKEYS_SIZE  = 5;
 
-    protected PhtNodeStats() {
-        this.pn            = new ArrayList<PhtNodeInfo>();
-        this.kpnLeavesBinf = new ArrayList<PhtNodeInfo>();
-        this.kpnLeavesBsup = new ArrayList<PhtNodeInfo>();
+    PhtNodeStats() {
+        this.pn            = new ArrayList<>();
+        this.kpnLeavesBinf = new ArrayList<>();
+        this.kpnLeavesBsup = new ArrayList<>();
 
         // Sort PhtNode by number of keys. If to number of keys are equal,
         // sort by usage. If they are equal, sort by label.
@@ -182,7 +182,7 @@ class PhtNodeStats {
      * keys in the List.
      */
     private List<PhtNodeInfo> mostPN (List<PhtNodeInfo> set, int nb) {
-        List<PhtNodeInfo> mukpn = new LinkedList<PhtNodeInfo>();
+        List<PhtNodeInfo> mukpn = new LinkedList<>();
 
         if (set.isEmpty()) {
             return mukpn;
@@ -213,7 +213,7 @@ class PhtNodeStats {
      * keys in the List.
      */
     private List<PhtNodeInfo> lessPN (List<PhtNodeInfo> set, int nb) {
-        List<PhtNodeInfo> lkpn = new LinkedList<PhtNodeInfo>();
+        List<PhtNodeInfo> lkpn = new LinkedList<>();
 
         if (set.isEmpty()) {
             return lkpn;
@@ -251,13 +251,12 @@ class PhtNodeStats {
 
     /**
      * Heights
-     * todo change to floats and repare the median
      * @return min, avg, median, max heights
      */
     private int[] heights () {
         int size = 0;
         int[] ha = new int[HEIGHT_SIZE];
-        List<PhtNodeInfo> pnil = new ArrayList<PhtNodeInfo>( this.pn );
+        List<PhtNodeInfo> pnil = new ArrayList<>( this.pn );
 
         if (! this.sorted) {
             sortAll();
@@ -314,7 +313,7 @@ class PhtNodeStats {
         int tot;    // Total heights (for average)
         int minIdx; // Number of leaves
         float[] zkl = new float[ZKEYS_SIZE];
-        List<PhtNodeInfo> zkPni = new LinkedList<PhtNodeInfo>();
+        List<PhtNodeInfo> zkPni = new LinkedList<>();
 
         if (! this.sorted) {
             sortAll();

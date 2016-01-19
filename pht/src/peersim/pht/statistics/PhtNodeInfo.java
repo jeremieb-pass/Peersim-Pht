@@ -9,10 +9,10 @@ package peersim.pht.statistics;
  * </p>
  */
 class PhtNodeInfo {
-    private String label;
-    private long usage;
-    private long usageDest;
-    private int nbKeys;
+    private final String label;
+    private final long usage;
+    private final long usageDest;
+    private final int nbKeys;
 
     public PhtNodeInfo(String label, long usage, long usageDest, int nbKeys) {
         this.label = label;
