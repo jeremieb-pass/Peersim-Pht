@@ -1459,33 +1459,22 @@ public class PhtProtocol implements EDProtocol {
 
         node = this.nodes.get(pml.getDestLabel());
         if (node == null) {
-            testNullNode(pml.getDestLabel());
-
-            String father = PhtUtil.father(pml.getDestLabel());
-            log(String.format("((%d)) node null processUpdatePrevLeaf\n",
-                    message.getId()));
-
-            pml.setDestLabel(father);
-            this.dht.send(message, father);
+            /*
+             * The destination leaf can have merged, but the sender of the
+             * update may not have received the information when it send it.
+             * Therefore, we must route the message to the father of the merged
+             * PhtNode.
+             */
+            updateLeavesToFather(message, pml);
             return;
         } else if ( (! node.isLeaf())
                 && (node.state.getState() < PhtNodeState.ACK_MERGE_LEAVES) ) {
-            NodeInfo lson = node.getLson();
-
-            if (lson.getNode() != null) {
-                pml.setDestLabel(lson.getKey());
-                EDSimulator.add(delay(), message, lson.getNode(), phtid);
-                log(String.format("((%d)) processUpdatePrevLeaf lson.getNode() != null "
-                                + ":: state: %s\n",
-                        message.getId(), node.state.toString()));
-            } else {
-                pml.setDestLabel(pml.getDestLabel() + "0");
-                this.dht.send(message, pml.getDestLabel());
-                log(String.format("((%d)) processUpdatePrevLeaf lson.getNode() == null "
-                                + ":: state: %s\n",
-                        message.getId(), node.state.toString()));
-            }
-            return;
+            /*
+             * Same idea as the previous comment but with a split. This
+             * scenario is better in a way because it does not involve a dht
+             * routing (which takes more time than a direct communication).
+             */
+            updateLeavesToSon(message, pml, node.getLson(), "0");
         }
 
         node.use();
@@ -1522,24 +1511,22 @@ public class PhtProtocol implements EDProtocol {
 
         node = this.nodes.get(pml.getDestLabel());
         if (node == null) {
-            testNullNode(pml.getDestLabel());
-
-            String father = PhtUtil.father(pml.getDestLabel());
-            pml.setDestLabel(father);
-            this.dht.send(message, father);
+            /*
+             * The destination leaf can have merged, but the sender of the
+             * update may not have received the information when it send it.
+             * Therefore, we must route the message to the father of the merged
+             * PhtNode.
+             */
+            updateLeavesToFather(message, pml);
             return;
         } else if ( (! node.isLeaf())
                 && (node.state.getState() < PhtNodeState.ACK_MERGE_LEAVES) ) {
-            NodeInfo rson = node.getRson();
-
-            if (rson.getNode() != null) {
-                pml.setDestLabel(rson.getKey());
-                EDSimulator.add(delay(), message, rson.getNode(), phtid);
-            } else {
-                pml.setDestLabel(pml.getDestLabel() + "1");
-                this.dht.send(message, pml.getDestLabel());
-            }
-            return;
+            /*
+             * Same idea as the previous comment but with a split. This
+             * scenario is better in a way because it does not involve a dht
+             * routing (which takes more time than a direct communication).
+             */
+            updateLeavesToSon(message, pml, node.getRson(), "1");
         }
 
         node.use();
@@ -2643,6 +2630,41 @@ public class PhtProtocol implements EDProtocol {
 
     /* ________________________                       _______________________ */
     /* ________________________ Process methods tools _______________________ */
+
+    /**
+     * Check if we can route the message to the PhtNode' sfather and do so if
+     * possible.
+     * (Used by processUpdateNextLeaf and processUpdatePreviousLeaf.)
+     * @param message information
+     * @param pml extracted from message
+     */
+    private void updateLeavesToFather(PhtMessage message, PMLookup pml) {
+        testNullNode(pml.getDestLabel(), message);
+
+        String father = PhtUtil.father(pml.getDestLabel());
+        pml.setDestLabel(father);
+        this.dht.send(message, father);
+    }
+
+    /**
+     * Forward a leaf update message to a PhtNode's son. If the son exists,
+     * direct communication is used, otherwise the message is route to the
+     * son's label.
+     * @param message general information
+     * @param pml destination label
+     * @param son information about the son
+     * @param label '0' if left son or '1' if right son
+     */
+    private void updateLeavesToSon(PhtMessage message, PMLookup pml, NodeInfo son, String label) {
+        if (son.getNode() != null) {
+            pml.setDestLabel(son.getKey());
+            EDSimulator.add(delay(), message, son.getNode(), phtid);
+        } else {
+            pml.setDestLabel(pml.getDestLabel() + label);
+            this.dht.send(message, pml.getDestLabel());
+        }
+        return;
+    }
 
     /**
      * Method to lighten the code of processLin_Lookup: a little switch
