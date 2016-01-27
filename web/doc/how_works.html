@@ -178,9 +178,9 @@
     </p>
 
     <div style="text-align: center;">
-        <img src="img/pht-seq.png" alt="Pht sequential query" style="width: 250px; margin: 0px 35px;
+        <img src="img/pht-seq.png" alt="Pht sequential query" style="width: 250px; margin: 0 35px;
     display: inline-block;">
-        <img src="img/pht-par.png" alt="Pht parallel query" style="width: 250px; margin: 0px 35px;
+        <img src="img/pht-par.png" alt="Pht parallel query" style="width: 250px; margin: 0 35px;
     display: inline-block;">
     </div>
 
@@ -236,8 +236,7 @@
 
     <p>
         The first condition is <a href="pht_doc.html">a property of the Pht</a>. The second on the other hand may
-        violate the same property. This possibility is discussed in the <a href="choices.html#insert">choices
-        section</a>. A split is a three step operation:
+        violate the same property. A split is a three step operation:
     </p>
     <dl>
         <dt>Dht routing</dt>
@@ -274,8 +273,7 @@
     </ol>
 
     <p>
-        Those conditions are similar to those for a split. Please read the <a href="choices.html#delete">choices
-        section</a> for more details. A merge is a three step operation:
+        Those conditions are similar to those for a split. A merge is a three step operation:
     </p>
     <dl>
         <dt>Ask for merge</dt>
@@ -362,7 +360,19 @@
         </dd>
     </dl>
 
+    <!-- Retry -->
+
+    <h2 id="retry">Retry</h2>
+
     <p>
+        A Pht node is an unstable state when a split or a merge operation is ongoing. It is in a stable state the rest
+        of the time.
+    </p>
+
+    <p>
+        In an unstable state, a node will refuse any operation. The initiator node of the operation will receive a
+        message informing him that the operation has been stopped and that he should try it again later. The node will
+        try again in maximum_delay * retry_factor time units.
     </p>
 
     <footer class="site-footer">
